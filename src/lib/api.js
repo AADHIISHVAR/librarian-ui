@@ -12,6 +12,7 @@ export async function search(prompt, library = "all") {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${LIBRARIAN_KEY}`,
       'x-librarian-key': LIBRARIAN_KEY
     },
     body: JSON.stringify({ prompt, library, top_k: 5 })
@@ -25,6 +26,7 @@ export async function listBooks(library, query = null) {
     method: 'POST',
     headers: { 
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${LIBRARIAN_KEY}`,
       'x-librarian-key': LIBRARIAN_KEY
     },
     body: JSON.stringify({ library, query })
