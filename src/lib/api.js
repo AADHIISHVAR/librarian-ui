@@ -1,4 +1,10 @@
-const BACKEND_URL = "https://aadhiishvar-library-assist-alphav1-10.hf.space";
+// On Hugging Face, we serve from the same origin. 
+// On GitHub Pages, we point to the HF API.
+const isGitHubPages = window.location.hostname.includes('github.io');
+const BACKEND_URL = isGitHubPages 
+  ? "https://aadhiishvar-library-assist-alphav1-10.hf.space" 
+  : "";
+
 const LIBRARIAN_KEY = "LIB_AI_2024_SECURE_TOKEN";
 
 export async function search(prompt, library = "all") {
