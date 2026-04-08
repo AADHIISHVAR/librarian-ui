@@ -29,6 +29,9 @@
 </script>
 
 <div class="hero">
+  <div class="beta-tag-wrapper">
+    <span class="logo-tag" style="margin-bottom: 1rem; display: inline-block;">Beta Version</span>
+  </div>
   <h1>What are you looking<br/>to <em>discover</em> today?</h1>
   <p>Describe a topic, a feeling, or what you're curious about — we'll find the right book.</p>
 </div>
