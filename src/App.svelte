@@ -3,11 +3,10 @@
   import LibraryListView from './components/LibraryListView.svelte';
 
   let activeTab = 'AI';
-  let showBetaNotice = localStorage.getItem('beta-notice-dismissed') !== 'true';
+  let showBetaNotice = true;
 
   function dismissNotice() {
     showBetaNotice = false;
-    localStorage.setItem('beta-notice-dismissed', 'true');
   }
 
   const tabs = [
