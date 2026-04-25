@@ -1,6 +1,7 @@
 <script>
   import AISearchView from './components/AISearchView.svelte';
   import LibraryListView from './components/LibraryListView.svelte';
+  import AdvancedSearchView from './components/AdvancedSearchView.svelte';
 
   let activeTab = 'AI';
   let showBetaNotice = true;
@@ -13,7 +14,8 @@
     { id: 'AI', label: 'AI Search' },
     { id: 'Central', label: 'Central' },
     { id: 'MBA', label: 'MBA / KBS' },
-    { id: 'Competitive', label: 'Competitive' }
+    { id: 'Competitive', label: 'Competitive' },
+    { id: 'Advanced', label: 'Advanced' }
   ];
 </script>
 
@@ -68,6 +70,8 @@
     <LibraryListView libraryName="MBA" libraryId="MBA" />
   {:else if activeTab === 'Competitive'}
     <LibraryListView libraryName="Competitive & Entrance" libraryId="Competitive" />
+  {:else if activeTab === 'Advanced'}
+    <AdvancedSearchView />
   {/if}
 </main>
 
