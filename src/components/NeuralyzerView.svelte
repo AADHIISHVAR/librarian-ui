@@ -59,11 +59,12 @@
       osc2.stop(now + 1.5);
     }
 
-    // 2. Visual Flash
+    // 2. Visual Flash Logic
     flashActive = true;
+    // Keep it fully white for 100ms, then let the CSS transition fade it out
     setTimeout(() => {
       flashActive = false;
-    }, 80);
+    }, 150);
   }
 
   function format(val) {
@@ -71,10 +72,8 @@
   }
 </script>
 
-<!-- Move flash overlay to top level -->
-{#if flashActive}
-  <div class="flash-overlay"></div>
-{/if}
+<!-- Flash overlay remains in DOM for smooth transition -->
+<div class="flash-overlay" class:active={flashActive}></div>
 
 <div class="neuralyzer-container {opened ? 'opened' : ''}">
   <div class="top-part chrome">
@@ -112,9 +111,16 @@
     position: fixed;
     top: 0; left: 0; 
     width: 100vw; height: 100vh;
-    background-color: #fff;
-    z-index: 99999; /* Max priority */
+    background-color: #ffffff;
+    z-index: 999999; /* Absolute max priority */
     pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.8s ease-out; /* Smooth fade away */
+  }
+
+  .flash-overlay.active {
+    opacity: 1;
+    transition: none; /* Sharp instant white */
   }
 
   .neuralyzer-container {
@@ -122,10 +128,11 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    height: 380px; /* Reduced height */
+    height: 380px; 
     justify-content: flex-end;
-    margin: 120px auto 0; /* Move down to avoid header clip */
+    margin: 120px auto 0;
     max-width: 400px;
+    z-index: 100;
   }
 
   .chrome {
@@ -186,7 +193,7 @@
   }
 
   .opened .top-part {
-    transform: translateY(-160px); /* Reduced slide distance */
+    transform: translateY(-160px); 
   }
 
   .dome {
