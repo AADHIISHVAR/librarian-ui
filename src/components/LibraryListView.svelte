@@ -64,10 +64,10 @@
 </div>
 
 {#if loading}
-  <div class="thinking">
-    <div class="dot"></div>
-    <div class="dot" style="animation-delay: 0.2s"></div>
-    <div class="dot" style="animation-delay: 0.4s"></div>
+  <div class="thinking" style="flex-direction: column;">
+    <div style="display: flex; gap: 0.5rem;">
+    </div>
+    <span style="font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--accent); margin-top: 1rem;">System is working...</span>
   </div>
 {/if}
 

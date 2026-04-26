@@ -113,10 +113,13 @@
 </div>
 
 {#if loading}
-  <div class="thinking" style="margin-top: 0; padding-bottom: 2rem;">
-    <div class="dot"></div>
-    <div class="dot" style="animation-delay: 0.2s"></div>
-    <div class="dot" style="animation-delay: 0.4s"></div>
+  <div class="thinking" style="margin-top: 0; padding-bottom: 2rem; flex-direction: column;">
+    <div style="display: flex; gap: 0.5rem;">
+      <div class="dot"></div>
+      <div class="dot" style="animation-delay: 0.2s"></div>
+      <div class="dot" style="animation-delay: 0.4s"></div>
+    </div>
+    <span style="font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--accent); margin-top: 1rem;">System is working...</span>
   </div>
 {/if}
 

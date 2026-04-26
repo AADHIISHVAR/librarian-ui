@@ -34,7 +34,7 @@
 <header>
   <div class="logo">
     <span class="logo-name">Librarian</span>
-    <span class="logo-tag">Beta v1.1</span>
+    <span class="logo-tag">Beta v1.2</span>
   </div>
   
   <div class="header-center">
