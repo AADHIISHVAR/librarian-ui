@@ -245,3 +245,36 @@ footer {
   .logo, .header-center, .header-right-placeholder { flex: none; width: 100%; justify-content: center; }
   .header-right-placeholder { display: none; }
 }
+
+.thinking {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 3rem 0;
+  position: relative;
+}
+
+.thinking::after {
+  content: 'System is working...';
+  position: absolute;
+  top: 2rem;
+  font-family: 'DM Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--accent);
+  opacity: 0.8;
+  letter-spacing: 0.05em;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: bounce 0.6s infinite alternate;
+}
+
+@keyframes bounce {
+  from { transform: translateY(0); opacity: 0.3; }
+  to { transform: translateY(-8px); opacity: 1; }
+}
