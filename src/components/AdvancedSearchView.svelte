@@ -12,20 +12,24 @@
   let error = null;
 
   async function handleSearch() {
-    if (!title && !author && !isbn && !acc_no) {
+    // Clear previous state immediately to show fresh UI
+    books = [];
+    error = null;
+
+    if (!title.trim() && !author.trim() && !isbn.trim() && !acc_no.trim()) {
       error = "Please enter at least one search criteria.";
       return;
     }
 
     console.log(`[advanced] Searching with title="${title}", author="${author}", isbn="${isbn}", acc_no="${acc_no}"`);
     loading = true;
-    error = null;
+    
     try {
       const res = await advancedSearch({
-        title: title || null,
-        author: author || null,
-        isbn: isbn || null,
-        acc_no: acc_no || null
+        title: title.trim() || null,
+        author: author.trim() || null,
+        isbn: isbn.trim() || null,
+        acc_no: acc_no.trim() || null
       });
       books = res.books || [];
       if (books.length === 0) {
@@ -34,7 +38,6 @@
     } catch (e) {
       console.error(`[advanced] Error:`, e);
       error = `Search failed: ${e.message}`;
-      books = [];
     } finally {
       loading = false;
     }
@@ -110,7 +113,7 @@
 </div>
 
 {#if loading}
-  <div class="thinking">
+  <div class="thinking" style="margin-top: 0; padding-bottom: 2rem;">
     <div class="dot"></div>
     <div class="dot" style="animation-delay: 0.2s"></div>
     <div class="dot" style="animation-delay: 0.4s"></div>
@@ -124,9 +127,11 @@
 {/if}
 
 <div id="results">
-  {#each books as book}
-    <BookCard {book} />
-  {/each}
+  {#if !loading}
+    {#each books as book}
+      <BookCard {book} />
+    {/each}
+  {/if}
 </div>
 
 <style>

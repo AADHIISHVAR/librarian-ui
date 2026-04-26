@@ -13,8 +13,12 @@
 
   async function fetchBooks() {
     console.log(`[catalog] Fetching books for ${libraryId} with query: "${query}"`);
-    loading = true;
+    
+    // Clear state
+    books = [];
     error = null;
+    loading = true;
+    
     try {
       const res = await listBooks(libraryId, query);
       console.log(`[catalog] Received ${res.books?.length || 0} books`);
@@ -25,7 +29,6 @@
     } catch (e) {
       console.error(`[catalog] Error fetching books:`, e);
       error = `Failed to load catalog: ${e.message}`;
-      books = [];
     } finally {
       loading = false;
     }
@@ -75,7 +78,9 @@
 {/if}
 
 <div id="results">
-  {#each books as book}
-    <BookCard {book} />
-  {/each}
+  {#if !loading}
+    {#each books as book}
+      <BookCard {book} />
+    {/each}
+  {/if}
 </div>

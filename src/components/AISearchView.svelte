@@ -9,8 +9,12 @@
 
   async function doSearch() {
     if (!query.trim()) return;
-    loading = true;
+    
+    // Clear previous results to ensure loading is visible
+    response = null;
     error = null;
+    loading = true;
+    
     try {
       response = await search(query, "all");
     } catch (e) {
@@ -21,7 +25,7 @@
   }
 
   function handleKeydown(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shift_key) {
       e.preventDefault();
       doSearch();
     }
