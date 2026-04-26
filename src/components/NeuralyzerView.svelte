@@ -10,7 +10,7 @@
   onMount(() => {
     const timer = setTimeout(() => {
       opened = true;
-    }, 1000);
+    }, 800);
     return () => clearTimeout(timer);
   });
 
@@ -63,7 +63,7 @@
     flashActive = true;
     setTimeout(() => {
       flashActive = false;
-    }, 50);
+    }, 80);
   }
 
   function format(val) {
@@ -71,6 +71,7 @@
   }
 </script>
 
+<!-- Move flash overlay to top level -->
 {#if flashActive}
   <div class="flash-overlay"></div>
 {/if}
@@ -88,20 +89,14 @@
     <div class="dials">
       <div class="dial-row">
         <div class="dial-label">Days</div>
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="dial" on:click={() => increment('days')}>{format(days)}</div>
       </div>
       <div class="dial-row">
         <div class="dial-label">Hours</div>
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="dial" on:click={() => increment('hours')}>{format(hours)}</div>
       </div>
       <div class="dial-row">
         <div class="dial-label">Mins</div>
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="dial" on:click={() => increment('minutes')}>{format(minutes)}</div>
       </div>
     </div>
@@ -115,9 +110,11 @@
 <style>
   .flash-overlay {
     position: fixed;
-    top: 0; left: 0; width: 100vw; height: 100vh;
-    background-color: white;
-    z-index: 10000;
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh;
+    background-color: #fff;
+    z-index: 99999; /* Max priority */
+    pointer-events: none;
   }
 
   .neuralyzer-container {
@@ -125,9 +122,10 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    height: 440px; 
+    height: 380px; /* Reduced height */
     justify-content: flex-end;
-    margin-top: 100px;
+    margin: 120px auto 0; /* Move down to avoid header clip */
+    max-width: 400px;
   }
 
   .chrome {
@@ -147,14 +145,14 @@
   }
 
   .base {
-    width: 70px;
-    height: 200px;
-    border-radius: 0 0 35px 35px;
+    width: 60px;
+    height: 180px;
+    border-radius: 0 0 30px 30px;
     position: relative;
     z-index: 30;
     display: flex;
     justify-content: center;
-    border-top: 2px solid #555;
+    border-top: 2px solid #444;
   }
 
   .base::after {
@@ -162,7 +160,7 @@
     position: absolute;
     top: 20px;
     width: 100%;
-    height: 130px;
+    height: 110px;
     background: repeating-linear-gradient(
       90deg,
       transparent,
@@ -173,9 +171,9 @@
   }
 
   .top-part {
-    width: 62px;
-    height: 400px;
-    border-radius: 31px 31px 0 0;
+    width: 52px;
+    height: 320px;
+    border-radius: 26px 26px 0 0;
     position: absolute;
     bottom: 0;
     z-index: 10;
@@ -188,16 +186,16 @@
   }
 
   .opened .top-part {
-    transform: translateY(-240px);
+    transform: translateY(-160px); /* Reduced slide distance */
   }
 
   .dome {
-    width: 48px;
-    height: 35px;
+    width: 40px;
+    height: 30px;
     background: radial-gradient(circle at 50% 30%, #ff7777, #aa0000);
-    border-radius: 24px 24px 5px 5px;
+    border-radius: 20px 20px 5px 5px;
     border: 2px solid #222;
-    box-shadow: 0 0 20px rgba(255,0,0,0.8);
+    box-shadow: 0 0 15px rgba(255,0,0,0.8);
     margin-bottom: 10px;
     position: relative;
     overflow: hidden;
@@ -207,10 +205,10 @@
   .dials {
     display: flex;
     flex-direction: column;
-    gap: 20px;
-    background: rgba(0,0,0,0.7);
-    padding: 15px 8px;
-    border-radius: 12px;
+    gap: 12px;
+    background: rgba(0,0,0,0.8);
+    padding: 10px 6px;
+    border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.1);
     margin-top: 10px;
   }
@@ -219,19 +217,19 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 2px;
+    gap: 1px;
   }
 
   .dial-label {
-    font-size: 8px;
+    font-size: 7px;
     color: #888;
     text-transform: uppercase;
     letter-spacing: 1px;
   }
 
   .dial {
-    width: 32px;
-    height: 20px;
+    width: 28px;
+    height: 18px;
     background: #000;
     border: 1px solid #333;
     color: #ff3333;
@@ -239,7 +237,7 @@
     justify-content: center;
     align-items: center;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: bold;
     cursor: pointer;
     user-select: none;
@@ -248,30 +246,29 @@
   }
 
   .red-button {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     background: radial-gradient(circle at 30% 30%, #ff5555, #880000);
     border-radius: 50%;
     cursor: pointer;
-    border: 3px solid #222;
-    box-shadow: 0 0 15px rgba(255,0,0,0.5), inset -2px -2px 5px rgba(0,0,0,0.5);
-    transition: transform 0.1s, box-shadow 0.1s;
+    border: 2px solid #222;
+    box-shadow: 0 0 12px rgba(255,0,0,0.5);
+    transition: transform 0.1s;
     z-index: 100;
   }
 
   .red-button:active {
-    transform: scale(0.85);
-    background: #ff0000;
+    transform: scale(0.9);
   }
 
   .instruction {
     position: absolute;
-    bottom: -80px;
-    width: 400px;
-    font-size: 11px;
-    color: #666;
+    bottom: -60px;
+    width: 100%;
+    font-size: 10px;
+    color: #888;
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
     opacity: 0;
     transition: opacity 1s;
     text-align: center;
