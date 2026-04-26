@@ -16,28 +16,39 @@
     books = [];
     error = null;
 
-    if (!title.trim() && !author.trim() && !isbn.trim() && !acc_no.trim()) {
+    const trimmedTitle = title.trim();
+    const trimmedAuthor = author.trim();
+    const trimmedIsbn = isbn.trim();
+    const trimmedAccNo = acc_no.trim();
+
+    if (!trimmedTitle && !trimmedAuthor && !trimmedIsbn && !trimmedAccNo) {
       error = "Please enter at least one search criteria.";
       return;
     }
 
-    console.log(`[advanced] Searching with title="${title}", author="${author}", isbn="${isbn}", acc_no="${acc_no}"`);
+    console.log(`[advanced] Searching with title="${trimmedTitle}", author="${trimmedAuthor}", isbn="${trimmedIsbn}", acc_no="${trimmedAccNo}"`);
     loading = true;
     
     try {
       const res = await advancedSearch({
-        title: title.trim() || null,
-        author: author.trim() || null,
-        isbn: isbn.trim() || null,
-        acc_no: acc_no.trim() || null
+        title: trimmedTitle || null,
+        author: trimmedAuthor || null,
+        isbn: trimmedIsbn || null,
+        acc_no: trimmedAccNo || null
       });
-      books = res.books || [];
-      if (books.length === 0) {
-        error = "No books found matching your criteria.";
+
+      if (res.error) {
+        error = `Server Error: ${res.error}`;
+        books = [];
+      } else {
+        books = res.books || [];
+        if (books.length === 0) {
+          error = "No books found matching your criteria.";
+        }
       }
     } catch (e) {
       console.error(`[advanced] Error:`, e);
-      error = `Search failed: ${e.message}`;
+      error = `Network Error: ${e.message}`;
     } finally {
       loading = false;
     }
