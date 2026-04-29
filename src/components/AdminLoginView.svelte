@@ -97,25 +97,54 @@
         <label for="daysLimit">Days Limit After Due Date</label>
         <input id="daysLimit" type="number" bind:value={daysLimit} placeholder="7" disabled={isSending} />
       </div>
+<div class="input-group">
+  <label for="message">Custom Message</label>
+  <textarea id="message" bind:value={message} placeholder="Type your core message here..." disabled={isSending}></textarea>
+</div>
 
-      <div class="input-group">
-        <label for="message">Custom Message</label>
-        <textarea id="message" bind:value={message} placeholder="Type your core message here..." disabled={isSending}></textarea>
-      </div>
+<div class="action-buttons">
+  <button class="login-btn" on:click={sendMessage} disabled={isSending}>
+    {isSending ? 'Sending...' : 'Send Message with Metadata'}
+  </button>
 
-      <button class="login-btn" on:click={sendMessage} disabled={isSending}>
-        {isSending ? 'Sending...' : 'Send Message with Metadata'}
-      </button>
+  <a href="http://localhost:7860/whatsapp" target="_blank" class="secondary-btn">
+    Launch WhatsApp Manager 🚀
+  </a>
+</div>
 
-      {#if infoMsg}
-        <p class="info-msg">{infoMsg}</p>
-      {{/if}}
-    </div>
-  {/if}
+{#if infoMsg}
+  <p class="info-msg">{infoMsg}</p>
+{/if}
+</div>
+{/if}
 </div>
 
 <style>
-  .admin-container {
+.action-buttons {
+display: flex;
+flex-direction: column;
+gap: 1rem;
+margin-top: 1rem;
+}
+.secondary-btn {
+display: block;
+text-align: center;
+background: rgba(255, 255, 255, 0.05);
+color: var(--accent);
+border: 1px solid var(--border);
+padding: 0.8rem;
+border-radius: 8px;
+font-weight: 500;
+text-decoration: none;
+transition: all 0.2s;
+font-size: 0.9rem;
+}
+.secondary-btn:hover {
+background: rgba(255, 255, 255, 0.1);
+border-color: var(--accent);
+}
+.admin-container {
+...
     display: flex;
     justify-content: center;
     align-items: center;
