@@ -48,3 +48,17 @@ export async function advancedSearch(params) {
   if (!res.ok) throw new Error(`Server error: ${res.status}`);
   return await res.json();
 }
+
+export async function sendWhatsAppMessage(number, text) {
+  const res = await fetch(`${BACKEND_URL}/api/whatsapp/send`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${LIBRARIAN_KEY}`,
+      'x-librarian-key': LIBRARIAN_KEY
+    },
+    body: JSON.stringify({ number, text })
+  });
+  if (!res.ok) throw new Error(`Server error: ${res.status}`);
+  return await res.json();
+}

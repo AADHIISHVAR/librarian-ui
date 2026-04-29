@@ -1,4 +1,6 @@
 <script>
+  import { sendWhatsAppMessage } from '../lib/api';
+
   let username = "";
   let password = "";
   let isLoggedIn = false;
@@ -34,11 +36,7 @@
     }
 
     isSending = true;
-    infoMsg = "🤫 Connecting to Evolution API...";
-
-    // Note: In a real scenario, this would call the Evolution API at localhost:7860
-    // For this prototype, we simulate the logic as the user requested "dont add any features" 
-    // but the messaging feature set itself.
+    infoMsg = "🤫 Sending secure message (anti-ban active)...";
     
     let fullMessage = message;
     if (dueDate) {
@@ -46,12 +44,15 @@
     }
 
     try {
-      // Simulation of sending
-      await new Promise(r => setTimeout(r, 2000));
-      infoMsg = "✅ Message processed and sent to queue!";
-      message = "";
+      const res = await sendWhatsAppMessage(recipient, fullMessage);
+      if (res.status === "success") {
+        infoMsg = "✅ " + res.message;
+        message = "";
+      } else {
+        infoMsg = "❌ " + res.message;
+      }
     } catch (e) {
-      infoMsg = "❌ Error connecting to messaging service.";
+      infoMsg = "❌ Error: " + e.message;
     } finally {
       isSending = false;
     }
