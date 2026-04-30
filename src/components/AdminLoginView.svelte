@@ -1,10 +1,24 @@
 <script>
-  import { sendWhatsAppMessage } from '../lib/api';
+  import { onMount, onDestroy } from 'svelte';
+  import { 
+    sendWhatsAppMessage, 
+    fetchInstances, 
+    createInstance, 
+    connectInstance, 
+    logoutInstance 
+  } from '../lib/api';
 
   let username = "";
   let password = "";
   let isLoggedIn = false;
   let error = "";
+
+  // WhatsApp Connection State
+  let connStatus = "checking"; // checking | login | dashboard
+  let qrCode = null;
+  let pairingCode = null;
+  let phoneNumber = "";
+  let isPairingLoading = false;
 
   // Messaging state
   let recipient = "91";
@@ -14,19 +28,77 @@
   let infoMsg = "";
   let isSending = false;
 
+  const instanceName = "halo";
+  let pollInterval;
+
+  async function checkSetup() {
+    try {
+      const instances = await fetchInstances();
+      const halo = instances.find(i => i.name === instanceName);
+      
+      if (halo) {
+        if (halo.connectionStatus === "open") {
+          connStatus = "dashboard";
+        } else {
+          connStatus = "login";
+        }
+      } else {
+        await createInstance(instanceName);
+        connStatus = "login";
+      }
+    } catch (e) {
+      connStatus = "login";
+    }
+  }
+
+  async function fetchConnData(num = null) {
+    if (num) {
+      isPairingLoading = true;
+      try { await logoutInstance(instanceName); } catch(e) {}
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    try {
+      const res = await connectInstance(instanceName, num);
+      if (res.base64) {
+        qrCode = res.base64.startsWith('data:') ? res.base64 : `data:image/png;base64,${res.base64}`;
+      }
+      if (res.pairingCode) {
+        pairingCode = res.pairingCode;
+      }
+    } catch (e) {}
+    isPairingLoading = false;
+  }
+
   function handleLogin() {
     if (username === "hisernbug" && password === "pounds") {
       isLoggedIn = true;
       error = "";
+      startPolling();
+      checkSetup();
     } else {
       error = "Invalid username or password";
     }
   }
 
+  function startPolling() {
+    pollInterval = setInterval(() => {
+      checkSetup();
+      if (connStatus === "login" && !isPairingLoading) {
+        fetchConnData();
+      }
+    }, 5000);
+  }
+
+  onDestroy(() => {
+    if (pollInterval) clearInterval(pollInterval);
+  });
+
   function handleLogout() {
     isLoggedIn = false;
     username = "";
     password = "";
+    if (pollInterval) clearInterval(pollInterval);
   }
 
   async function sendMessage() {
@@ -77,48 +149,162 @@
       <button class="login-btn" on:click={handleLogin}>Log In</button>
     </div>
   {:else}
-    <div class="dashboard-card">
-      <div class="dashboard-header">
-        <h2>Messaging Dashboard</h2>
-        <button class="logout-link" on:click={handleLogout}>Logout</button>
+    {#if connStatus === "checking"}
+      <div class="dashboard-card" style="text-align: center;">
+        <h2>Synchronizing...</h2>
+        <p class="info-msg">Establishing connection with Evolution API</p>
       </div>
+    {:else if connStatus === "login"}
+      <div class="dashboard-card" style="max-width: 800px;">
+        <div class="connection-grid">
+          <div class="qr-section">
+            <h3>Option 1: Scan QR</h3>
+            <div class="qr-box">
+              {#if qrCode}
+                <img src={qrCode} alt="WhatsApp QR Code" />
+              {:else}
+                <p>Generating QR Code...</p>
+              {/if}
+            </div>
+            <p class="hint">Open WhatsApp > Linked Devices > Link a Device</p>
+          </div>
 
-      <div class="dashboard-grid">
+          <div class="pairing-section">
+            <h3>Option 2: Pairing Code</h3>
+            <div class="input-group">
+              <label for="phone">Phone Number</label>
+              <input id="phone" type="text" bind:value={phoneNumber} placeholder="91XXXXXXXXXX" />
+            </div>
+            <button class="login-btn" disabled={isPairingLoading} on:click={() => fetchConnData(phoneNumber)}>
+              {isPairingLoading ? 'Requesting...' : 'Get Pairing Code'}
+            </button>
+
+            {#if pairingCode}
+              <div class="pairing-result">
+                <span class="code-label">Your Code</span>
+                <div class="code-value">{pairingCode}</div>
+              </div>
+            {/if}
+          </div>
+        </div>
+        <div style="text-align: center; margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <button class="secondary-btn" on:click={checkSetup}>Refresh Status</button>
+        </div>
+      </div>
+    {:else}
+      <div class="dashboard-card">
+        <div class="dashboard-header">
+          <h2>Messaging Dashboard</h2>
+          <button class="logout-link" on:click={handleLogout}>Logout</button>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="input-group">
+            <label for="recipient">Recipient Number</label>
+            <input id="recipient" type="text" bind:value={recipient} placeholder="91XXXXXXXXXX" disabled={isSending} />
+          </div>
+          <div class="input-group">
+            <label for="dueDate">Due Date (Optional)</label>
+            <input id="dueDate" type="date" bind:value={dueDate} disabled={isSending} />
+          </div>
+        </div>
+
         <div class="input-group">
-          <label for="recipient">Recipient Number</label>
-          <input id="recipient" type="text" bind:value={recipient} placeholder="91XXXXXXXXXX" disabled={isSending} />
+          <label for="daysLimit">Days Limit After Due Date</label>
+          <input id="daysLimit" type="number" bind:value={daysLimit} placeholder="7" disabled={isSending} />
         </div>
         <div class="input-group">
-          <label for="dueDate">Due Date (Optional)</label>
-          <input id="dueDate" type="date" bind:value={dueDate} disabled={isSending} />
+          <label for="message">Custom Message</label>
+          <textarea id="message" bind:value={message} placeholder="Type your core message here..." disabled={isSending}></textarea>
         </div>
+
+        <div class="action-buttons">
+          <button class="login-btn" on:click={sendMessage} disabled={isSending}>
+            {isSending ? 'Sending...' : 'Send Message with Metadata'}
+          </button>
+
+          <a href="/whatsapp" target="_blank" class="secondary-btn">
+            Launch WhatsApp Manager 🚀
+          </a>
+        </div>
+
+        {#if info_msg}
+          <p class="info-msg">{info_msg}</p>
+        {/if}
       </div>
-
-      <div class="input-group">
-        <label for="daysLimit">Days Limit After Due Date</label>
-        <input id="daysLimit" type="number" bind:value={daysLimit} placeholder="7" disabled={isSending} />
-      </div>
-<div class="input-group">
-  <label for="message">Custom Message</label>
-  <textarea id="message" bind:value={message} placeholder="Type your core message here..." disabled={isSending}></textarea>
+    {/if}
+  {/if}
 </div>
 
-<div class="action-buttons">
-  <button class="login-btn" on:click={sendMessage} disabled={isSending}>
-    {isSending ? 'Sending...' : 'Send Message with Metadata'}
-  </button>
-
-  <a href="/whatsapp" target="_blank" class="secondary-btn">
-    Launch WhatsApp Manager 🚀
-  </a>
-</div>
-
-{#if infoMsg}
-  <p class="info-msg">{infoMsg}</p>
-{/if}
-</div>
-{/if}
-</div>
+<style>
+  .connection-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 3rem;
+  }
+  .qr-box {
+    background: white;
+    padding: 1rem;
+    border-radius: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 250px;
+  }
+  .qr-box img {
+    max-width: 230px;
+    width: 100%;
+  }
+  .qr-section h3, .pairing-section h3 {
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+    font-family: 'DM Serif Display', serif;
+  }
+  .pairing-section {
+    border-left: 1px solid var(--border);
+    padding-left: 2rem;
+  }
+  .pairing-result {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: rgba(200, 169, 110, 0.1);
+    border: 2px dashed var(--accent);
+    border-radius: 12px;
+    text-align: center;
+  }
+  .code-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .code-value {
+    font-family: monospace;
+    font-size: 2.2rem;
+    color: var(--accent);
+    letter-spacing: 6px;
+    margin-top: 0.5rem;
+  }
+  .hint {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 1rem;
+  }
+  @media (max-width: 768px) {
+    .pairing-section {
+      border-left: none;
+      border-top: 1px solid var(--border);
+      padding-left: 0;
+      padding-top: 2rem;
+    }
+  }
+  .action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+...
 
 <style>
 .action-buttons {
@@ -145,7 +331,6 @@ background: rgba(255, 255, 255, 0.1);
 border-color: var(--accent);
 }
 .admin-container {
-...
     display: flex;
     justify-content: center;
     align-items: center;
