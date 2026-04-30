@@ -108,7 +108,7 @@
     {isSending ? 'Sending...' : 'Send Message with Metadata'}
   </button>
 
-  <a href="http://localhost:7860/whatsapp" target="_blank" class="secondary-btn">
+  <a href="/whatsapp" target="_blank" class="secondary-btn">
     Launch WhatsApp Manager 🚀
   </a>
 </div>
