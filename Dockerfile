@@ -34,7 +34,6 @@ COPY package*.json ./
 RUN npm install --no-audit --no-fund --ignore-scripts
 # Only copy files needed for the frontend build
 COPY src/ ./src/
-COPY public/ ./public/
 COPY *.js *.json *.html ./
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
