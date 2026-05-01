@@ -16,14 +16,15 @@ FROM node:20-slim AS evolution-builder
 RUN apt-get update && apt-get install -y git ffmpeg wget curl bash openssl python3 build-essential && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/evolution
 COPY evo_whatsapp_api/evolution-api/package*.json ./
-# Use npm install with ignore-scripts to avoid husky/post-install failures
-RUN npm install --no-audit --no-fund --ignore-scripts
+# Disable husky and install dependencies
+RUN npm set-script prepare "" && npm install --no-audit --no-fund --ignore-scripts
 COPY evo_whatsapp_api/evolution-api/ ./
-# Explicitly set binary target for Prisma to match runtime
+# Explicitly set binary target for Prisma
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 ENV NODE_OPTIONS="--max-old-space-size=1536"
-RUN npm run build && \
+# Run tsup directly to skip memory-heavy tsc --noEmit
+RUN npx tsup && \
     npm prune --omit=dev && \
     npm cache clean --force
 
@@ -32,7 +33,6 @@ FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY package*.json ./
 RUN npm install --no-audit --no-fund --ignore-scripts
-# Only copy files needed for the frontend build
 COPY src/ ./src/
 COPY *.js *.json *.html ./
 ENV NODE_OPTIONS="--max-old-space-size=1536"
