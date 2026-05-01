@@ -1,0 +1,15 @@
+# For non-NVIDIA (CPU or AMD/ROCm) users:
+# pip install torch --index-url https://download.pytorch.org/whl/cpu
+# (or use the rocm index for AMD GPU acceleration)
+
+fastapi==0.111.0
+uvicorn==0.30.1
+sentence-transformers==3.0.1
+requests==2.32.3
+python-dotenv==1.0.1
+sqlite-vec==0.1.1
+numpy==1.26.4
+einops
+tenacity==8.3.0
+tqdm==4.66.4
+
