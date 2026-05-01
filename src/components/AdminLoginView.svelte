@@ -5,7 +5,8 @@
     fetchInstances, 
     createInstance, 
     connectInstance, 
-    logoutInstance 
+    logoutInstance,
+    fetchOverdueBooks
   } from '../lib/api';
 
   let username = "";
@@ -27,6 +28,9 @@
   let message = "";
   let infoMsg = "";
   let isSending = false;
+
+  let overdueBooks = [];
+  let isLoadingOverdue = false;
 
   const instanceName = "halo";
   let pollInterval;
@@ -129,6 +133,17 @@
       isSending = false;
     }
   }
+
+  async function fetchOverdue() {
+    isLoadingOverdue = true;
+    try {
+      overdueBooks = await fetchOverdueBooks();
+    } catch (e) {
+      infoMsg = "❌ Error fetching overdue: " + e.message;
+    } finally {
+      isLoadingOverdue = false;
+    }
+  }
 </script>
 
 <div class="admin-container">
@@ -228,10 +243,56 @@
           </a>
         </div>
 
-        {#if info_msg}
-          <p class="info-msg">{info_msg}</p>
+        {#if infoMsg}
+          <p class="info-msg">{infoMsg}</p>
         {/if}
-      </div>
+
+        <div class="overdue-section" style="margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 2rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3>Overdue Students Tracking</h3>
+            <button class="secondary-btn" style="padding: 0.5rem 1rem;" on:click={fetchOverdue} disabled={isLoadingOverdue}>
+              {isLoadingOverdue ? 'Loading...' : 'Refresh List'}
+            </button>
+          </div>
+
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; color: var(--text);">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border); text-align: left;">
+                  <th style="padding: 0.75rem;">ID NO</th>
+                  <th style="padding: 0.75rem;">ACC NO</th>
+                  <th style="padding: 0.75rem;">TITLE</th>
+                  <th style="padding: 0.75rem;">DUE DATE</th>
+                  <th style="padding: 0.75rem;">ACTION</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each overdueBooks as book}
+                  <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <td style="padding: 0.75rem;">{book.id_no}</td>
+                    <td style="padding: 0.75rem;">{book.acc_no}</td>
+                    <td style="padding: 0.75rem;">{book.title}</td>
+                    <td style="padding: 0.75rem; color: #ef4444;">{book.due_date}</td>
+                    <td style="padding: 0.75rem;">
+                      <button 
+                        class="secondary-btn" 
+                        style="padding: 0.3rem 0.6rem; font-size: 0.75rem;"
+                        on:click={() => {
+                          message = `Reminder: The book '${book.title}' (Acc: ${book.acc_no}) was due on ${book.due_date}. Please return it to the library.`;
+                          dueDate = book.due_date;
+                        }}
+                      >
+                        Notify
+                      </button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        </div>
+
     {/if}
   {/if}
 </div>
@@ -304,33 +365,24 @@
     gap: 1rem;
     margin-top: 1rem;
   }
-...
-
-<style>
-.action-buttons {
-display: flex;
-flex-direction: column;
-gap: 1rem;
-margin-top: 1rem;
-}
-.secondary-btn {
-display: block;
-text-align: center;
-background: rgba(255, 255, 255, 0.05);
-color: var(--accent);
-border: 1px solid var(--border);
-padding: 0.8rem;
-border-radius: 8px;
-font-weight: 500;
-text-decoration: none;
-transition: all 0.2s;
-font-size: 0.9rem;
-}
-.secondary-btn:hover {
-background: rgba(255, 255, 255, 0.1);
-border-color: var(--accent);
-}
-.admin-container {
+  .secondary-btn {
+    display: block;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--accent);
+    border: 1px solid var(--border);
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+  }
+  .secondary-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: var(--accent);
+  }
+  .admin-container {
     display: flex;
     justify-content: center;
     align-items: center;

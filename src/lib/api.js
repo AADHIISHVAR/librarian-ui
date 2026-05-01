@@ -107,3 +107,14 @@ export async function logoutInstance(name) {
   if (!res.ok) throw new Error(`Server error: ${res.status}`);
   return await res.json();
 }
+
+export async function fetchOverdueBooks() {
+  const res = await fetch(`${BACKEND_URL}/api/overdue`, {
+    headers: { 
+      'Authorization': `Bearer ${LIBRARIAN_KEY}`,
+      'x-librarian-key': LIBRARIAN_KEY
+    }
+  });
+  if (!res.ok) throw new Error(`Server error: ${res.status}`);
+  return await res.json();
+}
