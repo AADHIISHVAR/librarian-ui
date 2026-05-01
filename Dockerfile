@@ -1,21 +1,27 @@
 # Stage 1: Build Rust Backend (Axum)
 FROM rust:1.82-slim AS backend-builder
-LABEL build_stage=backend
-LABEL build_date=2024-05-02
-RUN apt-get update && apt-get install -y pkg-config libssl-dev build-essential && rm -rf /var/lib/apt/lists/*
+# Force fresh build
+ENV CACHE_BUSTER=clean_build_v1_$(date +%s)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config libssl-dev build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 # Pre-build dependencies to cache them
-RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release -j 1 && rm -rf src
 COPY backend/src ./src
 ENV CARGO_INCREMENTAL=false
 ENV CARGO_BUILD_JOBS=1
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=s -C debuginfo=0"
-RUN cargo build --release
+RUN cargo build --release -j 1
 
 # Stage 2: Build Evolution API
 FROM node:20-bookworm-slim AS evolution-builder
-RUN apt-get update && apt-get install -y git ffmpeg wget curl bash openssl python3 build-essential && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ffmpeg wget curl bash openssl python3 build-essential && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app/evolution
 COPY evo_whatsapp_api/evolution-api/package*.json ./
 # Disable husky and install dependencies
@@ -25,8 +31,7 @@ COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 ENV NODE_OPTIONS="--max-old-space-size=1536"
-# Run tsup directly to skip memory-intensive tsc --noEmit. 
-# Entry point src/main.ts is standard for this project.
+# Run tsup directly to skip memory-intensive tsc --noEmit.
 RUN npx tsup src/main.ts --format cjs,esm --minify --clean --sourcemap false && \
     npm prune --omit=dev && \
     npm cache clean --force
@@ -38,8 +43,6 @@ COPY package*.json ./
 RUN npm install --no-audit --no-fund --ignore-scripts
 COPY src/ ./src/
 COPY index.html vite.config.js package.json ./
-# Optional: Copy package-lock.json if it exists to ensure consistent builds
-COPY package-lock.json* ./ 
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
@@ -47,10 +50,10 @@ RUN npm run build
 FROM python:3.11-slim
 
 # Install system dependencies including Node.js 20
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ffmpeg openssl sqlite3 libsqlite3-dev build-essential \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
