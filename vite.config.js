@@ -3,5 +3,8 @@ import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 export default defineConfig({
   plugins: [svelte()],
-  base: './' // Essential for GitHub Pages
+  base: './', // Essential for GitHub Pages
+  build: {
+    sourcemap: false
+  }
 })
