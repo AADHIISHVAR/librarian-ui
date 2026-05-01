@@ -23,8 +23,8 @@ COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 ENV NODE_OPTIONS="--max-old-space-size=1536"
-# Run tsup directly to skip memory-heavy tsc --noEmit
-RUN npx tsup && \
+# Run tsup directly. Entry point src/main.ts is standard for this project.
+RUN npx tsup src/main.ts --format cjs,esm --minify --clean --sourcemap false && \
     npm prune --omit=dev && \
     npm cache clean --force
 
@@ -34,7 +34,7 @@ WORKDIR /app/frontend
 COPY package*.json ./
 RUN npm install --no-audit --no-fund --ignore-scripts
 COPY src/ ./src/
-COPY *.js *.json *.html ./
+COPY index.html vite.config.js package.json ./
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
@@ -42,7 +42,7 @@ RUN npm run build
 FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y \
-    curl nodejs npm ffmpeg openssl sqlite3 \
+    curl nodejs npm ffmpeg openssl sqlite3 libsqlite3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -52,9 +52,10 @@ COPY sidecar/requirements.txt ./sidecar/
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r ./sidecar/requirements.txt
 
-RUN mkdir -p /app/backend /app/evolution/dist
+# Create necessary directories
+RUN mkdir -p /app/backend /app/evolution/dist /app/sidecar /app/dist
 
-# Copy built components
+# Copy built components from stages
 COPY --from=backend-builder /app/backend/target/release/library-backend /app/backend/backend-bin
 COPY --from=evolution-builder /app/evolution/dist /app/evolution/dist
 COPY --from=evolution-builder /app/evolution/node_modules /app/evolution/node_modules
@@ -63,14 +64,15 @@ COPY --from=evolution-builder /app/evolution/prisma /app/evolution/prisma
 COPY --from=evolution-builder /app/evolution/public /app/evolution/public
 COPY --from=frontend-builder /app/frontend/dist /app/dist
 
-# Copy Sidecar and Assets
+# Copy Sidecar code and Assets from context
 COPY sidecar/ /app/sidecar/
 COPY uniqueBooks.db /app/uniqueBooks.db
-# Create placeholders for other DBs
+COPY start_hf.sh ./
+
+# Setup databases
 RUN cp /app/uniqueBooks.db /app/library_database.db && \
     touch /app/ilibrary-database-all.db /app/combined-library.db
 
-COPY start_hf.sh ./
 RUN chmod +x /app/start_hf.sh
 
 # Environment variables
