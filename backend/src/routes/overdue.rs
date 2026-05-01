@@ -18,8 +18,8 @@ pub struct OverdueBook {
 }
 
 pub async fn get_overdue_books() -> impl IntoResponse {
-    let db_all_path = "ilibrary-database-all.db";
-    let db_combined_path = "combined-library.db";
+    let db_all_path = "/app/ilibrary-database-all.db";
+    let db_combined_path = "/app/combined-library.db";
 
     let conn = match Connection::open(db_all_path) {
         Ok(c) => c,
