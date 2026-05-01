@@ -1,7 +1,7 @@
 # Stage 1: Build Rust Backend (Axum)
 FROM rust:1.82-slim AS backend-builder
-# Force fresh build
-ENV CACHE_BUSTER=clean_build_v1_$(date +%s)
+# Force fresh build with a literal timestamp
+ENV CACHE_BUSTER=clean_build_20240502_0120
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev build-essential && \
     rm -rf /var/lib/apt/lists/*
