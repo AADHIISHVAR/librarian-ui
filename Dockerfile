@@ -1,12 +1,12 @@
 # Stage 1: Build Rust Backend (Axum)
-FROM rust:1.85-slim AS backend-builder
+FROM rust:1.82-slim AS backend-builder
 RUN apt-get update && apt-get install -y pkg-config libssl-dev build-essential && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/backend
 COPY backend/ .
 # Aggressive memory optimization for Rust build
 ENV CARGO_INCREMENTAL=false
 ENV CARGO_BUILD_JOBS=1
-ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0"
+ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=s -C debuginfo=0"
 RUN cargo build --release
 
 # Stage 2: Build Evolution API
@@ -14,7 +14,8 @@ FROM node:20-slim AS evolution-builder
 RUN apt-get update && apt-get install -y git ffmpeg wget curl bash openssl python3 build-essential && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/evolution
 COPY evo_whatsapp_api/evolution-api/package*.json ./
-RUN npm ci --no-audit --no-fund
+# Use npm install instead of ci for better resilience against lockfile mismatches on server
+RUN npm install --no-audit --no-fund
 COPY evo_whatsapp_api/evolution-api/ ./
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 ENV NODE_OPTIONS="--max-old-space-size=1536"
@@ -26,7 +27,7 @@ RUN npm run build && \
 FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm install --no-audit --no-fund
 COPY . .
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
@@ -40,7 +41,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install Sidecar Dependencies
+# Install Sidecar Dependencies (CPU version of torch is smaller)
 COPY sidecar/requirements.txt ./sidecar/
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r ./sidecar/requirements.txt
@@ -60,10 +61,11 @@ COPY --from=frontend-builder /app/frontend/dist /app/dist
 COPY sidecar/ /app/sidecar/
 # Only copy available databases
 COPY uniqueBooks.db /app/uniqueBooks.db
-# Create a placeholder if library_database.db is missing
-RUN cp /app/uniqueBooks.db /app/library_database.db
-COPY start_hf.sh ./
+# Create placeholders if databases are missing to prevent backend panic
+RUN cp /app/uniqueBooks.db /app/library_database.db && \
+    touch /app/ilibrary-database-all.db /app/combined-library.db
 
+COPY start_hf.sh ./
 RUN chmod +x /app/start_hf.sh
 
 # Environment variables
@@ -71,7 +73,7 @@ ENV DATABASE_PROVIDER=sqlite
 ENV DATABASE_CONNECTION_URI="file:/app/evolution/prisma/evolution.db"
 ENV CACHE_PROVIDER=local
 ENV AUTH_API_KEY=hellowork.1234
-ENV PORT=8080
+ENV PORT=7860
 ENV SERVER_PORT=8080
 ENV PYTHONUNBUFFERED=1
 ENV MALLOC_ARENA_MAX=2
