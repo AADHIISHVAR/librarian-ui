@@ -6,7 +6,7 @@ export default defineConfig({
   entry: ['src'],
   outDir: 'dist',
   splitting: false,
-  sourcemap: true,
+  sourcemap: false,
   clean: true,
   minify: true,
   format: ['cjs', 'esm'],
