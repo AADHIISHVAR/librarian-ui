@@ -12,7 +12,7 @@ ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=s -C debuginfo=0"
 RUN cargo build --release
 
 # Stage 2: Build Evolution API
-FROM node:20-slim AS evolution-builder
+FROM node:20-bookworm-slim AS evolution-builder
 RUN apt-get update && apt-get install -y git ffmpeg wget curl bash openssl python3 build-essential && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/evolution
 COPY evo_whatsapp_api/evolution-api/package*.json ./
@@ -23,13 +23,14 @@ COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 ENV NODE_OPTIONS="--max-old-space-size=1536"
-# Run build script which includes tsup. Entry point src/main.ts is standard for this project.
-RUN npm run build && \
+# Run tsup directly to skip memory-intensive tsc --noEmit. 
+# Entry point src/main.ts is standard for this project.
+RUN npx tsup src/main.ts --format cjs,esm --minify --clean --sourcemap false && \
     npm prune --omit=dev && \
     npm cache clean --force
 
 # Stage 3: Build Svelte Frontend
-FROM node:20-slim AS frontend-builder
+FROM node:20-bookworm-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY package*.json ./
 RUN npm install --no-audit --no-fund --ignore-scripts
