@@ -2,8 +2,10 @@
 FROM rust:1.82-slim AS backend-builder
 RUN apt-get update && apt-get install -y pkg-config libssl-dev build-essential && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/backend
-COPY backend/ .
-# Aggressive memory optimization for Rust build
+COPY backend/Cargo.toml backend/Cargo.lock ./
+# Pre-build dependencies to cache them
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+COPY backend/src ./src
 ENV CARGO_INCREMENTAL=false
 ENV CARGO_BUILD_JOBS=1
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=s -C debuginfo=0"
@@ -14,9 +16,11 @@ FROM node:20-slim AS evolution-builder
 RUN apt-get update && apt-get install -y git ffmpeg wget curl bash openssl python3 build-essential && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/evolution
 COPY evo_whatsapp_api/evolution-api/package*.json ./
-# Use npm install instead of ci for better resilience against lockfile mismatches on server
-RUN npm install --no-audit --no-fund
+# Use npm install with ignore-scripts to avoid husky/post-install failures
+RUN npm install --no-audit --no-fund --ignore-scripts
 COPY evo_whatsapp_api/evolution-api/ ./
+# Explicitly set binary target for Prisma to match runtime
+ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build && \
@@ -27,8 +31,11 @@ RUN npm run build && \
 FROM node:20-slim AS frontend-builder
 WORKDIR /app/frontend
 COPY package*.json ./
-RUN npm install --no-audit --no-fund
-COPY . .
+RUN npm install --no-audit --no-fund --ignore-scripts
+# Only copy files needed for the frontend build
+COPY src/ ./src/
+COPY public/ ./public/
+COPY *.js *.json *.html ./
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
@@ -41,7 +48,7 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install Sidecar Dependencies (CPU version of torch is smaller)
+# Install Sidecar Dependencies
 COPY sidecar/requirements.txt ./sidecar/
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && \
     pip install --no-cache-dir -r ./sidecar/requirements.txt
@@ -59,9 +66,8 @@ COPY --from=frontend-builder /app/frontend/dist /app/dist
 
 # Copy Sidecar and Assets
 COPY sidecar/ /app/sidecar/
-# Only copy available databases
 COPY uniqueBooks.db /app/uniqueBooks.db
-# Create placeholders if databases are missing to prevent backend panic
+# Create placeholders for other DBs
 RUN cp /app/uniqueBooks.db /app/library_database.db && \
     touch /app/ilibrary-database-all.db /app/combined-library.db
 
