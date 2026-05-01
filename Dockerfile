@@ -1,5 +1,7 @@
 # Stage 1: Build Rust Backend (Axum)
 FROM rust:1.82-slim AS backend-builder
+LABEL build_stage=backend
+LABEL build_date=2024-05-02
 RUN apt-get update && apt-get install -y pkg-config libssl-dev build-essential && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
