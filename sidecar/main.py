@@ -131,6 +131,22 @@ def list_books(req: ListBooksRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class AdvancedSearchRequest(BaseModel):
+    acc_no: str = None
+    title: str = None
+    author: str = None
+    isbn: str = None
+
+@app.post("/advanced-search")
+def advanced_search_endpoint(req: AdvancedSearchRequest):
+    try:
+        from db import advanced_search
+        books = advanced_search(req.acc_no, req.title, req.author, req.isbn)
+        return books
+    except Exception as e:
+        print(f"[advanced-search] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

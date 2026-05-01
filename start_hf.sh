@@ -10,6 +10,13 @@ python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 > /app/sidecar.log 2>&1 &
 
 echo "[boot] Starting Evolution WhatsApp API..."
 cd /app/evolution
+
+# Initialize SQLite database if provider is sqlite
+if [ "$DATABASE_PROVIDER" = "sqlite" ]; then
+  echo "[boot] Initializing SQLite database for Evolution API..."
+  npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
+fi
+
 # Evolution API is a standalone Node.js service
 npm run start:prod > /app/evolution.log 2>&1 &
 

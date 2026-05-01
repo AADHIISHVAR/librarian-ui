@@ -23,8 +23,8 @@ COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 ENV NODE_OPTIONS="--max-old-space-size=1536"
-# Run tsup directly. Entry point src/main.ts is standard for this project.
-RUN npx tsup src/main.ts --format cjs,esm --minify --clean --sourcemap false && \
+# Run build script which includes tsup. Entry point src/main.ts is standard for this project.
+RUN npm run build && \
     npm prune --omit=dev && \
     npm cache clean --force
 
@@ -35,14 +35,19 @@ COPY package*.json ./
 RUN npm install --no-audit --no-fund --ignore-scripts
 COPY src/ ./src/
 COPY index.html vite.config.js package.json ./
+# Optional: Copy package-lock.json if it exists to ensure consistent builds
+COPY package-lock.json* ./ 
 ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
 # Stage 4: Final Runtime Image
 FROM python:3.11-slim
 
+# Install system dependencies including Node.js 20
 RUN apt-get update && apt-get install -y \
-    curl nodejs npm ffmpeg openssl sqlite3 libsqlite3-dev \
+    curl ffmpeg openssl sqlite3 libsqlite3-dev build-essential \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

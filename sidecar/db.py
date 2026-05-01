@@ -346,3 +346,60 @@ def title_search_fallback(query: str, library: str = "all", top_k: int = 5):
         "available":     "available" in (r["status"] or "").lower(),
         "similarity":    1.0,
     } for r in rows]
+
+def advanced_search(acc_no=None, title=None, author=None, isbn=None, limit=100):
+    conn = get_conn()
+    
+    sql = """
+        SELECT 
+            Accession_Num, Title, Author, 
+            Location_Library AS Library,
+            Location___Availability AS shelf,
+            Circulation_Status AS status,
+            Edition, Publisher, 
+            Year_of_Publishing AS year,
+            Price AS price, ISBN AS isbn,
+            Department AS dept, Subject AS subject,
+            Description AS description
+        FROM Books
+        WHERE 1=1
+    """
+    params = []
+    
+    if acc_no:
+        sql += " AND Accession_Num LIKE ?"
+        params.append(f"%{acc_no}%")
+    if title:
+        sql += " AND Title LIKE ?"
+        params.append(f"%{title}%")
+    if author:
+        sql += " AND Author LIKE ?"
+        params.append(f"%{author}%")
+    if isbn:
+        sql += " AND ISBN LIKE ?"
+        params.append(f"%{isbn}%")
+        
+    sql += " LIMIT ?"
+    params.append(limit)
+    
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    
+    return [{
+        "accession_num": r["Accession_Num"],
+        "title":         r["Title"]     or "Unknown",
+        "author":        r["Author"]    or "Unknown",
+        "library":       r["Library"]   or "Unknown",
+        "shelf":         r["shelf"]     or "Ask librarian",
+        "status":        r["status"]    or "",
+        "edition":       r["Edition"]   or "",
+        "publisher":     r["Publisher"] or "",
+        "year":          r["year"]      or "",
+        "price":         r["price"]     or "",
+        "isbn":          r["isbn"]      or "",
+        "dept":          r["dept"]      or "",
+        "subject":       r["subject"]   or "",
+        "description":   r["description"] or "",
+        "available":     "available" in (r["status"] or "").lower(),
+        "similarity":    1.0,
+    } for r in rows]
