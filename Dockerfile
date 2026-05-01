@@ -1,8 +1,13 @@
-# Stage 1: Pre-built Rust Backend
-FROM debian:bookworm-slim AS backend-bin
-WORKDIR /app
-# Use the pre-built binary from the workspace
-COPY backend/target/debug/library-backend /app/backend-bin
+# Stage 1: Build Rust Backend (Axum)
+FROM rust:1.85-slim AS backend-builder
+RUN apt-get update && apt-get install -y pkg-config libssl-dev build-essential && rm -rf /var/lib/apt/lists/*
+WORKDIR /app/backend
+COPY backend/ .
+# Aggressive memory optimization for Rust build
+ENV CARGO_INCREMENTAL=false
+ENV CARGO_BUILD_JOBS=1
+ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0"
+RUN cargo build --release
 
 # Stage 2: Build Evolution API
 FROM node:20-slim AS evolution-builder
@@ -43,7 +48,7 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
 RUN mkdir -p /app/backend /app/evolution/dist
 
 # Copy built components
-COPY --from=backend-bin /app/backend-bin /app/backend/backend-bin
+COPY --from=backend-builder /app/backend/target/release/library-backend /app/backend/backend-bin
 COPY --from=evolution-builder /app/evolution/dist /app/evolution/dist
 COPY --from=evolution-builder /app/evolution/node_modules /app/evolution/node_modules
 COPY --from=evolution-builder /app/evolution/package.json /app/evolution/package.json
