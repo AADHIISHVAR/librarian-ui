@@ -1,6 +1,5 @@
 name: Docker Publish
 
-# Trigger a fresh build to ensure lowercase hardcoding is applied
 on:
   push:
     branches: [ main ]
@@ -11,6 +10,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      # Opt into Node 24 as recommended by GitHub warnings
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout repository
@@ -24,11 +26,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        # Upgraded to v6 for better compatibility
+        uses: docker/build-push-action@v6
         with:
           context: .
-          # Using production Dockerfile
           file: ./Dockerfile.production
           push: true
-          # Hardcoded lowercase to avoid Docker naming errors
+          # Hardcoded lowercase
           tags: ghcr.io/aadhiishvar/librarian-ai:latest
