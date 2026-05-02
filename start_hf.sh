@@ -43,7 +43,12 @@ if [ "$DATABASE_PROVIDER" = "sqlite" ]; then
   npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
 fi
 
+# Ensure correct API Key and Disable Redis (if not provided) to ensure local stability
+export AUTHENTICATION_API_KEY="hellowork.1234"
+export CACHE_REDIS_ENABLED="false"
+export CACHE_LOCAL_ENABLED="true"
 export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
+
 npm run start:prod > /app/evolution.log 2>&1 &
 
 # Wait for sidecar and evolution to be ready
