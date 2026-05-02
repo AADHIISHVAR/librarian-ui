@@ -18,16 +18,29 @@ if [ "$DATABASE_PROVIDER" = "sqlite" ]; then
   # Ensure the directory exists
   mkdir -p prisma
   
-  # If evolution.db exists and is 0 bytes (corrupted/placeholder), remove it
-  if [ -f "prisma/evolution.db" ] && [ ! -s "prisma/evolution.db" ]; then
-    echo "[boot] Removing empty evolution.db placeholder..."
-    rm prisma/evolution.db
+  # AGGRESSIVE CLEANUP: 
+  # If evolution.db exists, check if it's a valid SQLite file.
+  # If it's not (e.g. 0 bytes or corrupted), delete it.
+  DB_FILE="prisma/evolution.db"
+  if [ -f "$DB_FILE" ]; then
+    # Use sqlite3 to check integrity or just check size
+    if [ ! -s "$DB_FILE" ]; then
+        echo "[boot] $DB_FILE is 0 bytes. Deleting..."
+        rm "$DB_FILE"
+    elif ! sqlite3 "$DB_FILE" "PRAGMA integrity_check;" > /dev/null 2>&1; then
+        echo "[boot] $DB_FILE is corrupted. Deleting..."
+        rm "$DB_FILE"
+    fi
   fi
   
+  # Set DATABASE_URL explicitly for the Prisma command to use the absolute path
+  export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
   npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
 fi
 
 # Evolution API is a standalone Node.js service
+# Ensure the same DATABASE_URL is used for the runtime
+export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
 npm run start:prod > /app/evolution.log 2>&1 &
 
 # Wait for sidecar and evolution to be ready
