@@ -33,7 +33,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
+
+# Create dummy source to allow cargo to fetch/build dependencies
+RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo fetch
+# Build dependencies only to cache them
+RUN CARGO_BUILD_JOBS=1 cargo build --release && rm -rf src
+
+# Copy real source and build
 COPY backend/src ./src
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0 -C link-arg=-s"
 RUN cargo build --release --locked
