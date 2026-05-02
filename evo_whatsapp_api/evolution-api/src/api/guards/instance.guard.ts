@@ -40,16 +40,6 @@ export async function instanceExistsGuard(req: Request, _: Response, next: NextF
 }
 
 export async function instanceLoggedGuard(req: Request, _: Response, next: NextFunction) {
-  if (req.originalUrl.includes('/instance/create')) {
-    const instance = req.body as InstanceDto;
-    if (await getInstance(instance.instanceName)) {
-      throw new ForbiddenException(`This name "${instance.instanceName}" is already in use.`);
-    }
-
-    if (waMonitor.waInstances[instance.instanceName]) {
-      delete waMonitor.waInstances[instance.instanceName];
-    }
-  }
-
-  next();
+  // SECURITY BYPASSED PER USER REQUEST
+  return next();
 }

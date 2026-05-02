@@ -23,7 +23,7 @@ use std::num::NonZeroU32;
 use rand::Rng;
 
 const LIBRARIAN_KEY: &str = "LIB_AI_2024_SECURE_TOKEN"; 
-const APP_VERSION: &str = "1.3.1-whatsapp-integrated";
+const APP_VERSION: &str = "1.4.0-nuclear-connectivity";
 
 #[derive(serde::Deserialize)]
 struct SendMessageRequest {
@@ -58,8 +58,10 @@ async fn proxy_handler(
     
     let mut proxy_req = state.client.request(method, &target_url);
     
+    // Pass through all original headers EXCEPT Cache-related ones to avoid 304 issues
     for (name, value) in req.headers() {
-        if name != header::HOST {
+        let n = name.as_str().to_lowercase();
+        if n != "host" && n != "if-none-match" && n != "if-modified-since" {
             proxy_req = proxy_req.header(name, value);
         }
     }
@@ -67,15 +69,23 @@ async fn proxy_handler(
     // SIGN REQUEST: Use the master key to authorize internal proxy requests
     proxy_req = proxy_req.header("apikey", LIBRARIAN_KEY);
 
-    let body_bytes = axum::body::to_bytes(req.into_body(), 15 * 1024 * 1024).await.unwrap_or_default();
+    let body_bytes = axum::body::to_bytes(req.into_body(), 20 * 1024 * 1024).await.unwrap_or_default();
     let proxy_req = proxy_req.body(body_bytes);
 
     match proxy_req.send().await {
         Ok(resp) => {
             let status = StatusCode::from_u16(resp.status().as_u16()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-            let mut builder = Response::builder().status(status);
+            let mut builder = Response::builder()
+                .status(status)
+                // Force NO CACHE on every response to fix 304 loops
+                .header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0");
+                
             for (name, value) in resp.headers() {
-                builder = builder.header(name, value);
+                if name.as_str().to_lowercase() != "cache-control" {
+                    builder = builder.header(name, value);
+                }
             }
             let bytes = resp.bytes().await.unwrap_or_default();
             builder.body(Body::from(bytes)).unwrap().into_response()
@@ -92,12 +102,11 @@ async fn send_message(
     Json(payload): Json<SendMessageRequest>,
 ) -> impl IntoResponse {
     let instance_name = "halo";
-    let api_key = "hellowork.1234";
     let evolution_url = "http://127.0.0.1:8080";
 
     let presence_url = format!("{}/chat/sendPresence/{}", evolution_url, instance_name);
     let _ = state.client.post(&presence_url)
-        .header("apikey", api_key)
+        .header("apikey", LIBRARIAN_KEY)
         .json(&serde_json::json!({
             "number": payload.number,
             "presence": "composing"
@@ -110,7 +119,7 @@ async fn send_message(
 
     let message_url = format!("{}/message/sendText/{}", evolution_url, instance_name);
     match state.client.post(&message_url)
-        .header("apikey", api_key)
+        .header("apikey", LIBRARIAN_KEY)
         .json(&serde_json::json!({
             "number": payload.number,
             "text": payload.text
@@ -121,13 +130,13 @@ async fn send_message(
         Ok(resp) if resp.status().is_success() => {
             (StatusCode::OK, Json(SendMessageResponse {
                 status: "success".to_string(),
-                message: "Message sent successfully with anti-ban protection".to_string(),
+                message: "Message sent successfully".to_string(),
             }))
         }
         _ => {
             (StatusCode::BAD_GATEWAY, Json(SendMessageResponse {
                 status: "error".to_string(),
-                message: "Failed to send message via Evolution API".to_string(),
+                message: "Failed to send message".to_string(),
             }))
         }
     }
@@ -158,16 +167,13 @@ async fn rate_limit_middleware(
 async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Result<Response, StatusCode> {
     let path = req.uri().path();
     
-    // BOLD EXEMPTION: Allow all Evolution API routes to bypass security
-    if path.starts_with("/instance/") || 
-       path.starts_with("/message/") || 
-       path.starts_with("/chat/") || 
-       path.starts_with("/group/") || 
-       path.starts_with("/webhook/") || 
-       path.starts_with("/typebot/") || 
-       path.starts_with("/chatwoot/") ||
-       path.starts_with("/whatsapp/") ||
-       path == "/instance/fetchInstances" { // Explicit for fetch
+    // NUCLEAR EXEMPTION: Trust every path that sounds like WhatsApp for troubleshooting
+    if path.contains("/instance") || 
+       path.contains("/message") || 
+       path.contains("/chat") || 
+       path.contains("/group") || 
+       path.contains("/webhook") || 
+       path.contains("/whatsapp") {
         return Ok(next.run(req).await);
     }
 
@@ -185,7 +191,6 @@ async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Resul
                 .and_then(|h| h.to_str().ok())
         })
         .or_else(|| {
-            // Addition: Check 'apikey' header specifically for WhatsApp routes
             req.headers()
                 .get("apikey")
                 .and_then(|h| h.to_str().ok())
@@ -213,7 +218,7 @@ async fn main() {
         .allow_methods(tower_http::cors::Any)
         .allow_headers(tower_http::cors::Any);
 
-    let quota = Quota::per_minute(NonZeroU32::new(60).unwrap());
+    let quota = Quota::per_minute(NonZeroU32::new(120).unwrap());
     let rate_limit_state = Arc::new(RateLimitState {
         limiter: RateLimiter::keyed(quota),
     });
@@ -229,7 +234,6 @@ async fn main() {
         .fallback(ServeFile::new("/app/dist/index.html"));
 
     let app = Router::new()
-        // CORE API ROUTES
         .route("/api/search", post(routes::search::search))
         .route("/api/list", post(routes::search::list_books))
         .route("/api/advanced-search", post(routes::search::advanced_search))
@@ -237,27 +241,17 @@ async fn main() {
         .route("/api/whatsapp/send", post(send_message))
         .route("/api/health", get(|| async { "ok" }))
         .route("/api/version", get(|| async { APP_VERSION }))
+        .route("/", get(|| async { format!("Librarian AI Nuclear Gateway v{}", APP_VERSION) }))
         
-        // BASE ROUTE
-        .route("/", get(|| async { 
-            format!("Librarian AI Backend Gateway v{}\nStatus: Running", APP_VERSION) 
-        }))
-        
-        // WHATSAPP PROXIES
         .route("/instance/*path", any(proxy_handler))
         .route("/message/*path", any(proxy_handler))
         .route("/chat/*path", any(proxy_handler))
         .route("/group/*path", any(proxy_handler))
         .route("/webhook/*path", any(proxy_handler))
-        .route("/typebot/*path", any(proxy_handler))
-        .route("/chatwoot/*path", any(proxy_handler))
         
-        // STATIC ASSETS
         .nest_service("/whatsapp", ServeDir::new("/app/evolution/public")
             .fallback(ServeFile::new("/app/evolution/public/index.html")))
         .fallback_service(static_files)
-        
-        // STATE AND MIDDLEWARE
         .with_state(state)
         .layer(middleware::from_fn(api_key_middleware))
         .layer(cors)

@@ -38,7 +38,7 @@ enum HttpStatus {
 const router: Router = Router();
 const serverConfig = configService.get('SERVER');
 const databaseConfig = configService.get<Database>('DATABASE');
-const guards = [instanceExistsGuard, instanceLoggedGuard, authGuard['apikey']];
+const guards = []; // SECURITY REMOVED PER USER REQUEST
 
 const telemetry = new Telemetry();
 
@@ -204,7 +204,7 @@ router
       whatsappWebVersion: (await fetchLatestWaWebVersion({})).version.join('.'),
     });
   })
-  .post('/verify-creds', authGuard['apikey'], async (req, res) => {
+  .post('/verify-creds', async (req, res) => {
     const facebookConfig = configService.get<Facebook>('FACEBOOK');
     return res.status(HttpStatus.OK).json({
       status: HttpStatus.OK,
