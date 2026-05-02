@@ -1,6 +1,18 @@
 #!/bin/bash
 set -e
 
+# Diagnostic: Check if uniqueBooks.db is a real database or an LFS pointer
+echo "[boot] Diagnostic for uniqueBooks.db:"
+ls -lh /app/uniqueBooks.db
+if head -c 100 /app/uniqueBooks.db | grep -q "version https://git-lfs"; then
+  echo "[error] /app/uniqueBooks.db is a Git LFS pointer, not a real database!"
+else
+  echo "[boot] /app/uniqueBooks.db seems to be a real file."
+fi
+
+# Setup library database
+cp /app/uniqueBooks.db /app/library_database.db
+
 echo "[boot] Starting AI sidecar (FastAPI)..."
 cd /app/sidecar
 DB_PATH=/app/library_database.db \
@@ -15,31 +27,22 @@ cd /app/evolution
 if [ "$DATABASE_PROVIDER" = "sqlite" ]; then
   echo "[boot] Initializing SQLite database for Evolution API..."
   
-  # Ensure the directory exists
   mkdir -p prisma
-  
-  # AGGRESSIVE CLEANUP: 
-  # If evolution.db exists, check if it's a valid SQLite file.
-  # If it's not (e.g. 0 bytes or corrupted), delete it.
   DB_FILE="prisma/evolution.db"
   if [ -f "$DB_FILE" ]; then
-    # Use sqlite3 to check integrity or just check size
     if [ ! -s "$DB_FILE" ]; then
         echo "[boot] $DB_FILE is 0 bytes. Deleting..."
         rm "$DB_FILE"
     elif ! sqlite3 "$DB_FILE" "PRAGMA integrity_check;" > /dev/null 2>&1; then
-        echo "[boot] $DB_FILE is corrupted. Deleting..."
+        echo "[boot] $DB_FILE is corrupted or not a DB. Deleting..."
         rm "$DB_FILE"
     fi
   fi
   
-  # Set DATABASE_URL explicitly for the Prisma command to use the absolute path
   export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
   npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
 fi
 
-# Evolution API is a standalone Node.js service
-# Ensure the same DATABASE_URL is used for the runtime
 export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
 npm run start:prod > /app/evolution.log 2>&1 &
 
@@ -52,7 +55,9 @@ while ! curl -s http://localhost:8001/health > /dev/null; do
   count=$((count+1))
   if [ $count -ge $max_retries ]; then
     echo "[error] AI Sidecar failed to start"
+    echo "--- Sidecar Log ---"
     cat /app/sidecar.log || true
+    echo "--- End Log ---"
     exit 1
   fi
 done
@@ -64,7 +69,9 @@ while ! curl -s http://localhost:8080/instance/fetchInstances -H "apikey: hellow
   count=$((count+1))
   if [ $count -ge $max_retries ]; then
     echo "[error] Evolution API failed to start"
+    echo "--- Evolution Log ---"
     cat /app/evolution.log || true
+    echo "--- End Log ---"
     exit 1
   fi
 done

@@ -17,7 +17,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          lfs: true # Crucial for pulling .db files tracked by LFS
+          lfs: true
+
+      - name: Force LFS Pull
+        run: |
+          git lfs install
+          git lfs pull
+          ls -lh uniqueBooks.db
+          head -c 100 uniqueBooks.db
 
       - name: Log in to the Container registry
         uses: docker/login-action@v3
