@@ -366,16 +366,16 @@ def advanced_search(acc_no=None, title=None, author=None, isbn=None, limit=100):
     """
     params = []
     
-    if acc_no:
+    if acc_no is not None and acc_no.strip():
         sql += " AND Accession_Num LIKE ?"
         params.append(f"%{acc_no}%")
-    if title:
+    if title is not None and title.strip():
         sql += " AND Title LIKE ?"
         params.append(f"%{title}%")
-    if author:
+    if author is not None and author.strip():
         sql += " AND Author LIKE ?"
         params.append(f"%{author}%")
-    if isbn:
+    if isbn is not None and isbn.strip():
         sql += " AND ISBN LIKE ?"
         params.append(f"%{isbn}%")
         

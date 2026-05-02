@@ -131,11 +131,13 @@ def list_books(req: ListBooksRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+from typing import Optional
+
 class AdvancedSearchRequest(BaseModel):
-    acc_no: str = None
-    title: str = None
-    author: str = None
-    isbn: str = None
+    acc_no: Optional[str] = None
+    title: Optional[str] = None
+    author: Optional[str] = None
+    isbn: Optional[str] = None
 
 @app.post("/advanced-search")
 def advanced_search_endpoint(req: AdvancedSearchRequest):
