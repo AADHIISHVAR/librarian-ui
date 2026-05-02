@@ -158,15 +158,16 @@ async fn rate_limit_middleware(
 async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Result<Response, StatusCode> {
     let path = req.uri().path();
     
-    // EXEMPTION: Allow all WhatsApp proxy routes to bypass security for troubleshooting
-    if path.starts_with("/instance") || 
-       path.starts_with("/message") || 
-       path.starts_with("/chat") || 
-       path.starts_with("/group") || 
-       path.starts_with("/webhook") || 
-       path.starts_with("/typebot") || 
-       path.starts_with("/chatwoot") ||
-       path.starts_with("/whatsapp") {
+    // BOLD EXEMPTION: Allow all Evolution API routes to bypass security
+    if path.starts_with("/instance/") || 
+       path.starts_with("/message/") || 
+       path.starts_with("/chat/") || 
+       path.starts_with("/group/") || 
+       path.starts_with("/webhook/") || 
+       path.starts_with("/typebot/") || 
+       path.starts_with("/chatwoot/") ||
+       path.starts_with("/whatsapp/") ||
+       path == "/instance/fetchInstances" { // Explicit for fetch
         return Ok(next.run(req).await);
     }
 
@@ -228,16 +229,21 @@ async fn main() {
         .fallback(ServeFile::new("/app/dist/index.html"));
 
     let app = Router::new()
-        .nest("/api", Router::new()
-            .route("/search", post(routes::search::search))
-            .route("/list", post(routes::search::list_books))
-            .route("/advanced-search", post(routes::search::advanced_search))
-            .route("/overdue", get(routes::overdue::get_overdue_books))
-            .route("/whatsapp/send", post(send_message))
-        )
+        // CORE API ROUTES
+        .route("/api/search", post(routes::search::search))
+        .route("/api/list", post(routes::search::list_books))
+        .route("/api/advanced-search", post(routes::search::advanced_search))
+        .route("/api/overdue", get(routes::overdue::get_overdue_books))
+        .route("/api/whatsapp/send", post(send_message))
+        .route("/api/health", get(|| async { "ok" }))
+        .route("/api/version", get(|| async { APP_VERSION }))
+        
+        // BASE ROUTE
         .route("/", get(|| async { 
             format!("Librarian AI Backend Gateway v{}\nStatus: Running", APP_VERSION) 
         }))
+        
+        // WHATSAPP PROXIES
         .route("/instance/*path", any(proxy_handler))
         .route("/message/*path", any(proxy_handler))
         .route("/chat/*path", any(proxy_handler))
@@ -245,13 +251,15 @@ async fn main() {
         .route("/webhook/*path", any(proxy_handler))
         .route("/typebot/*path", any(proxy_handler))
         .route("/chatwoot/*path", any(proxy_handler))
+        
+        // STATIC ASSETS
         .nest_service("/whatsapp", ServeDir::new("/app/evolution/public")
             .fallback(ServeFile::new("/app/evolution/public/index.html")))
-        .route("/api/health", get(|| async { "ok" }))
-        .route("/api/version", get(|| async { APP_VERSION }))
         .fallback_service(static_files)
+        
+        // STATE AND MIDDLEWARE
         .with_state(state)
-        .layer(middleware::from_fn(api_key_middleware)) // SECURITY: One layer for the whole app, with path-based exemptions
+        .layer(middleware::from_fn(api_key_middleware))
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
