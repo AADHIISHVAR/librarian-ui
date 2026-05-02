@@ -866,7 +866,7 @@ export class ConfigService {
       },
       AUTHENTICATION: {
         API_KEY: {
-          KEY: process.env.AUTHENTICATION_API_KEY || 'BQYHJGJHJ',
+          KEY: process.env.AUTHENTICATION_API_KEY || 'LIB_AI_2024_SECURE_TOKEN',
         },
         EXPOSE_IN_FETCH_INSTANCES: process.env?.AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES === 'true',
       },
