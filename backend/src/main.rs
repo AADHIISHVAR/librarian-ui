@@ -210,13 +210,16 @@ async fn main() {
 
     println!("[backend] v{} Starting...", APP_VERSION);
     
-    let api_routes = Router::new()
+    let private_api = Router::new()
         .route("/search", post(routes::search::search))
         .route("/list", post(routes::search::list_books))
         .route("/advanced-search", post(routes::search::advanced_search))
-        .route("/whatsapp/send", post(send_message))
         .route("/overdue", get(routes::overdue::get_overdue_books))
-        .layer(middleware::from_fn(api_key_middleware))
+        .layer(middleware::from_fn(api_key_middleware));
+
+    let api_routes = Router::new()
+        .nest("/", private_api)
+        .route("/whatsapp/send", post(send_message)) // WhatsApp module - No security for now
         .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware));
 
     let static_files = ServeDir::new("/app/dist")
@@ -227,6 +230,7 @@ async fn main() {
         .route("/", get(|| async { 
             format!("Librarian AI Backend Gateway v{}\nStatus: Running", APP_VERSION) 
         }))
+        // WHATSAPP PROXIES - No security for now per request
         .route("/instance/*path", any(proxy_handler))
         .route("/message/*path", any(proxy_handler))
         .route("/chat/*path", any(proxy_handler))
@@ -234,7 +238,6 @@ async fn main() {
         .route("/webhook/*path", any(proxy_handler))
         .route("/typebot/*path", any(proxy_handler))
         .route("/chatwoot/*path", any(proxy_handler))
-        .layer(middleware::from_fn(api_key_middleware)) // SECURITY: Protect every route in the app
         .nest_service("/whatsapp", ServeDir::new("/app/evolution/public")
             .fallback(ServeFile::new("/app/evolution/public/index.html")))
         .route("/api/health", get(|| async { "ok" }))
