@@ -6,12 +6,21 @@ echo "[boot] Diagnostic for uniqueBooks.db:"
 ls -lh /app/uniqueBooks.db
 if head -c 100 /app/uniqueBooks.db | grep -q "version https://git-lfs"; then
   echo "[error] /app/uniqueBooks.db is a Git LFS pointer, not a real database!"
+  # Try to fix it if git is available (it should be in the builder, but maybe not runtime)
+  # On HF, we hope the builder did its job.
 else
   echo "[boot] /app/uniqueBooks.db seems to be a real file."
 fi
 
 # Setup library database
 cp /app/uniqueBooks.db /app/library_database.db
+
+# Ensure overdue tracking databases exist as valid SQLite files (not empty files)
+for db in /app/ilibrary-database-all.db /app/combined-library.db; do
+  if [ ! -f "$db" ]; then
+    sqlite3 "$db" "VACUUM;"
+  fi
+done
 
 echo "[boot] Starting AI sidecar (FastAPI)..."
 cd /app/sidecar
@@ -23,32 +32,35 @@ python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 > /app/sidecar.log 2>&1 &
 echo "[boot] Starting Evolution WhatsApp API..."
 cd /app/evolution
 
-# Initialize SQLite database if provider is sqlite
-if [ "$DATABASE_PROVIDER" = "sqlite" ]; then
-  echo "[boot] Initializing SQLite database for Evolution API..."
-  
-  mkdir -p prisma
-  DB_FILE="prisma/evolution.db"
-  if [ -f "$DB_FILE" ]; then
-    if [ ! -s "$DB_FILE" ]; then
-        echo "[boot] $DB_FILE is 0 bytes. Deleting..."
-        rm "$DB_FILE"
-    elif ! sqlite3 "$DB_FILE" "PRAGMA integrity_check;" > /dev/null 2>&1; then
-        echo "[boot] $DB_FILE is corrupted or not a DB. Deleting..."
-        rm "$DB_FILE"
-    fi
-  fi
-  
-  export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
-  npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
-fi
-
-# Ensure correct API Key and Disable Redis (if not provided) to ensure local stability
+# Environment for Evolution API
 export AUTHENTICATION_API_KEY="hellowork.1234"
+export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
+export DATABASE_PROVIDER="sqlite"
+export DATABASE_CONNECTION_URI="file:/app/evolution/prisma/evolution.db"
+export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
 export CACHE_REDIS_ENABLED="false"
 export CACHE_LOCAL_ENABLED="true"
-export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
+export WEBHOOK_GLOBAL_ENABLED="false"
+export SERVER_URL="https://aadhiishvar-library-assist-alphav1-10.hf.space"
 
+# Initialize SQLite database
+echo "[boot] Initializing SQLite database for Evolution API..."
+mkdir -p prisma
+DB_FILE="prisma/evolution.db"
+if [ -f "$DB_FILE" ]; then
+  if [ ! -s "$DB_FILE" ]; then
+      echo "[boot] $DB_FILE is 0 bytes. Deleting..."
+      rm "$DB_FILE"
+  elif ! sqlite3 "$DB_FILE" "PRAGMA integrity_check;" > /dev/null 2>&1; then
+      echo "[boot] $DB_FILE is corrupted or not a DB. Deleting..."
+      rm "$DB_FILE"
+  fi
+fi
+
+# Run prisma migration/push
+npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
+
+echo "[boot] Starting Evolution Node process..."
 npm run start:prod > /app/evolution.log 2>&1 &
 
 # Wait for sidecar and evolution to be ready
