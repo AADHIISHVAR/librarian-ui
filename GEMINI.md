@@ -1,65 +1,66 @@
 # Librarian AI — Project Context (Updated May 2, 2026)
 
-A comprehensive library assistant system that combines vector-based semantic search with Large Language Models (LLMs) and automated student notification systems. **Status: All systems fully operational and synchronized.**
+A comprehensive library assistant system that combines vector-based semantic search with Large Language Models (LLMs) and automated student notification systems. **Status: All systems fully operational, synchronized, and hardened.**
 
 ## 🏗️ Architecture Overview
 
-The project is deployed as a **CI/CD Integrated Multi-Service System**, solving all previous memory and cache issues.
+The project is deployed as a **CI/CD Integrated Multi-Service System**, leveraging GitHub's infrastructure for builds and Hugging Face for stable runtime.
 
 1.  **Deployment Engine (GitHub Actions + GHCR):**
-    *   **Verified:** Heavy compilation (Rust 1.85, Node build, Torch) is handled exclusively by GitHub.
-    *   **Verified:** Git LFS support is enabled; real database files are correctly pulled and built into images.
-    *   **Public Access:** Image is served via `ghcr.io/aadhiishvar/librarian-ai:latest`.
+    *   **Heavy Lifting:** All compilation (Rust 1.85, Node build, Torch) happens on GitHub to avoid 16GB RAM limits on HF.
+    *   **LFS Support:** `checkout@v4` with `lfs: true` and explicit `git lfs pull` ensures real database files are included in the image.
+    *   **Registry:** Images are served via `ghcr.io/aadhiishvar/librarian-ai:latest`. (Must be set to **Public**).
 
 2.  **Backend Gateway (Rust/Axum):** 
-    *   **Verified:** Primary API gateway serving as a secure proxy.
-    *   **Security:** Simplified `api_key_middleware` to use token-based auth (`LIB_AI_2024_SECURE_TOKEN`) while removing restrictive origin blocks for maximum availability.
+    *   **Primary Gateway:** Built with Rust 1.85 (Edition 2024).
+    *   **Auth:** Secured via `LIB_AI_2024_SECURE_TOKEN`. Origin-agnostic middleware ensures global accessibility.
 
 3.  **Svelte Frontend (JS):**
-    *   **Verified:** Modern, responsive UI. All API calls are synchronized with the backend gateway.
+    *   **Admin Portal:** Integrated WhatsApp instance management, QR/Pairing code display, and overdue tracking.
 
 4.  **AI Sidecar (Python/FastAPI):**
-    *   **Verified:** Semantic search using `sqlite-vec` aligned with the `unique_books` schema.
-    *   **Hardening:** Handles null search filters gracefully (resolves 422 errors).
+    *   **Semantic Search:** Using `sqlite-vec`. Aligned with `unique_books` schema.
+    *   **Robustness:** Handles null/missing search filters gracefully (resolves 422 errors).
 
 5.  **Evolution API (Node.js):**
-    *   **Verified:** WhatsApp integration. Fixed QR/Pairing code generation by disabling Redis and forcing global API keys (`hellowork.1234`).
+    *   **WhatsApp Core:** Hardened for zero-dependency local mode.
+    *   **Connectivity:** Fixed QR generation by disabling Redis and forcing global API key `hellowork.1234`.
 
 ## 🚀 WhatsApp & Notification System
 
-### 1. Connection Stability
-*   **Zero-Dependency:** Using local SQLite session storage for WhatsApp, removing the need for an external Redis server.
-*   **Reliability:** Explicit absolute paths (`/app/evolution/prisma/evolution.db`) prevent runtime environment confusion.
+### 1. Hardened Connection
+*   **Zero-Dependency:** Using local SQLite session storage. `CACHE_REDIS_ENABLED` is set to `false`.
+*   **Persistence:** Explicit absolute paths (`/app/evolution/prisma/evolution.db`) ensure session stability.
+*   **Forced Auth:** Uses fixed `AUTHENTICATION_API_KEY` to synchronize with frontend requests.
 
 ### 2. Secure Messaging (Anti-Ban)
-*   Implements "composing..." status and randomized delays to simulate human behavior.
+*   Implements "composing..." status simulation and randomized 3-6 second delays between messages.
 
 ## 🛠️ Technology Stack
 
-*   **Languages:** Rust 1.85 (Edition 2024), Node 20 (LTS), Python 3.11.
+*   **Languages:** Rust 1.85 (LTS), Node 20 (LTS), Python 3.11.
 *   **Databases:** 
     *   `uniqueBooks.db`: Master catalog (Table: `unique_books`).
-    *   `evolution.db`: SQLite session store.
+    *   `evolution.db`: SQLite session store for WhatsApp sessions.
 *   **Storage:** Git LFS enabled for large models and databases.
 
 ## 📂 Key API Endpoints
 
 *   `POST /api/search`: AI-powered semantic discovery.
-*   `POST /api/advanced-search`: Structured search (Highly robust).
-*   `GET /api/overdue`: Automated tracking via attached databases.
+*   `POST /api/advanced-search`: Structured search (Supports multi-filter nulls).
+*   `GET /api/overdue`: Automated tracking via attached SQLite databases.
 *   `ANY /instance/*`: Proxied Evolution API management.
 
 ## 📦 Deployment & Maintenance
 
 ### Build Stability (The "Real Plan")
-The "Thin Dockerfile" strategy on Hugging Face ensures **zero OOM crashes** during deployment. All heavy lifting is done on GitHub's infrastructure.
+The "Thin Dockerfile" strategy on Hugging Face ensures **zero OOM crashes**. All compilation happens on GitHub Runners.
 
-### Automated Health Checks
-The `start_hf.sh` script handles:
-1.  **LFS Verification:** Ensures `uniqueBooks.db` is a real DB and not a text pointer.
-2.  **Database Repair:** Cleans corrupted SQLite placeholders before services start.
-3.  **Dependency Ordering:** Ensures AI and WhatsApp services are healthy before opening the gateway.
+### Automated Boot Diagnostics (`start_hf.sh`)
+1.  **LFS Verification:** Automatically checks if `uniqueBooks.db` is a real DB or a text pointer.
+2.  **DB Integrity:** Uses `sqlite3` to verify and repair session databases before Prisma starts.
+3.  **Environment Sync:** Exports all critical API keys and paths at runtime to prevent configuration drift.
 
 ---
 **Maintained by:** Librarian Dev Team
-**Last Sync:** May 2, 2026 — **Architecture Verified Stable**
+**Last Sync:** May 2, 2026 — **Production-Ready & Stable**
