@@ -1,5 +1,6 @@
 name: Docker Publish
 
+# Trigger a fresh build to ensure lowercase hardcoding is applied
 on:
   push:
     branches: [ main ]
@@ -26,6 +27,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          # Using production Dockerfile
           file: ./Dockerfile.production
           push: true
           # Hardcoded lowercase to avoid Docker naming errors
