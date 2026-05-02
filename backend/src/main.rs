@@ -168,6 +168,12 @@ async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Resul
             req.headers()
                 .get("x-librarian-key")
                 .and_then(|h| h.to_str().ok())
+        })
+        .or_else(|| {
+            // Addition: Check 'apikey' header specifically for WhatsApp routes
+            req.headers()
+                .get("apikey")
+                .and_then(|h| h.to_str().ok())
         });
 
     match auth_header {
