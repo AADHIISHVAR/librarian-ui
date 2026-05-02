@@ -17,7 +17,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app/evolution
 COPY evo_whatsapp_api/evolution-api/package*.json ./
-RUN npm set-script prepare "" && npm ci --no-audit --no-fund --ignore-scripts
+# Use modern npm pkg set to clear prepare script and ignore scripts during install
+RUN npm pkg set scripts.prepare="" && npm ci --no-audit --no-fund --ignore-scripts
 COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
