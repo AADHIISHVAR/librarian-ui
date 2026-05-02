@@ -194,6 +194,11 @@ async fn main() {
         .allow_methods(tower_http::cors::Any)
         .allow_headers(tower_http::cors::Any);
 
+    let quota = Quota::per_minute(NonZeroU32::new(60).unwrap());
+    let rate_limit_state = Arc::new(RateLimitState {
+        limiter: RateLimiter::keyed(quota),
+    });
+
     let state = Arc::new(AppState {
         rate_limit: rate_limit_state,
         client: reqwest::Client::new(),
@@ -207,8 +212,8 @@ async fn main() {
         .route("/advanced-search", post(routes::search::advanced_search))
         .route("/whatsapp/send", post(send_message))
         .route("/overdue", get(routes::overdue::get_overdue_books))
-        .layer(middleware::from_fn(api_key_middleware));
-        // Removed rate limit from this layer temporarily to ensure QR stability
+        .layer(middleware::from_fn(api_key_middleware))
+        .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware));
 
     let static_files = ServeDir::new("/app/dist")
         .fallback(ServeFile::new("/app/dist/index.html"));
