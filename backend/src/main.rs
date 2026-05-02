@@ -159,18 +159,6 @@ async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Resul
         return Ok(next.run(req).await);
     }
 
-    if let Some(origin_val) = req.headers().get(header::ORIGIN).and_then(|h| h.to_str().ok()) {
-        let allowed_origins = [
-            "https://AADHIISHVAR.github.io",
-            "https://aadhiishvar.github.io",
-            "https://aadhiishvar-library-assist-alphav1-10.hf.space",
-        ];
-        if !allowed_origins.iter().any(|&o| origin_val.starts_with(o)) {
-            tracing::warn!("Forbidden: Blocking request from unauthorized origin: {}", origin_val);
-            return Err(StatusCode::FORBIDDEN);
-        }
-    }
-
     let auth_header = req.headers()
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
