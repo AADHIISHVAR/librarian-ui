@@ -156,6 +156,20 @@ async fn rate_limit_middleware(
 }
 
 async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Result<Response, StatusCode> {
+    let path = req.uri().path();
+    
+    // EXEMPTION: Allow all WhatsApp proxy routes to bypass security for troubleshooting
+    if path.starts_with("/instance") || 
+       path.starts_with("/message") || 
+       path.starts_with("/chat") || 
+       path.starts_with("/group") || 
+       path.starts_with("/webhook") || 
+       path.starts_with("/typebot") || 
+       path.starts_with("/chatwoot") ||
+       path.starts_with("/whatsapp") {
+        return Ok(next.run(req).await);
+    }
+
     if req.method() == axum::http::Method::OPTIONS {
         return Ok(next.run(req).await);
     }
@@ -210,27 +224,20 @@ async fn main() {
 
     println!("[backend] v{} Starting...", APP_VERSION);
     
-    let private_api = Router::new()
-        .route("/search", post(routes::search::search))
-        .route("/list", post(routes::search::list_books))
-        .route("/advanced-search", post(routes::search::advanced_search))
-        .route("/overdue", get(routes::overdue::get_overdue_books))
-        .layer(middleware::from_fn(api_key_middleware));
-
-    let api_routes = Router::new()
-        .nest("/", private_api)
-        .route("/whatsapp/send", post(send_message)) // WhatsApp module - No security for now
-        .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware));
-
     let static_files = ServeDir::new("/app/dist")
         .fallback(ServeFile::new("/app/dist/index.html"));
 
     let app = Router::new()
-        .nest("/api", api_routes)
+        .nest("/api", Router::new()
+            .route("/search", post(routes::search::search))
+            .route("/list", post(routes::search::list_books))
+            .route("/advanced-search", post(routes::search::advanced_search))
+            .route("/overdue", get(routes::overdue::get_overdue_books))
+            .route("/whatsapp/send", post(send_message))
+        )
         .route("/", get(|| async { 
             format!("Librarian AI Backend Gateway v{}\nStatus: Running", APP_VERSION) 
         }))
-        // WHATSAPP PROXIES - No security for now per request
         .route("/instance/*path", any(proxy_handler))
         .route("/message/*path", any(proxy_handler))
         .route("/chat/*path", any(proxy_handler))
@@ -244,6 +251,7 @@ async fn main() {
         .route("/api/version", get(|| async { APP_VERSION }))
         .fallback_service(static_files)
         .with_state(state)
+        .layer(middleware::from_fn(api_key_middleware)) // SECURITY: One layer for the whole app, with path-based exemptions
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
