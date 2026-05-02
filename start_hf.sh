@@ -14,6 +14,16 @@ cd /app/evolution
 # Initialize SQLite database if provider is sqlite
 if [ "$DATABASE_PROVIDER" = "sqlite" ]; then
   echo "[boot] Initializing SQLite database for Evolution API..."
+  
+  # Ensure the directory exists
+  mkdir -p prisma
+  
+  # If evolution.db exists and is 0 bytes (corrupted/placeholder), remove it
+  if [ -f "prisma/evolution.db" ] && [ ! -s "prisma/evolution.db" ]; then
+    echo "[boot] Removing empty evolution.db placeholder..."
+    rm prisma/evolution.db
+  fi
+  
   npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
 fi
 
@@ -22,13 +32,14 @@ npm run start:prod > /app/evolution.log 2>&1 &
 
 # Wait for sidecar and evolution to be ready
 echo "[boot] Waiting for services to wake up..."
-max_retries=30
+max_retries=60
 count=0
 while ! curl -s http://localhost:8001/health > /dev/null; do
   sleep 2
   count=$((count+1))
   if [ $count -ge $max_retries ]; then
     echo "[error] AI Sidecar failed to start"
+    cat /app/sidecar.log || true
     exit 1
   fi
 done
@@ -40,6 +51,7 @@ while ! curl -s http://localhost:8080/instance/fetchInstances -H "apikey: hellow
   count=$((count+1))
   if [ $count -ge $max_retries ]; then
     echo "[error] Evolution API failed to start"
+    cat /app/evolution.log || true
     exit 1
   fi
 done

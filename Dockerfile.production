@@ -87,7 +87,7 @@ COPY start_hf.sh ./
 
 # 6. Final Setup
 RUN cp /app/uniqueBooks.db /app/library_database.db && \
-    touch /app/ilibrary-database-all.db /app/combined-library.db && \
+    \
     chmod +x /app/start_hf.sh
 
 # Environment
