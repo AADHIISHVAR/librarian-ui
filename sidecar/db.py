@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-DB_PATH = os.getenv("DB_PATH", "../library_database.db")
+DB_PATH = os.getenv("DB_PATH", "/app/library_database.db")
 
 
 def get_conn():
