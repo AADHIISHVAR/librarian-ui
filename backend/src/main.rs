@@ -188,18 +188,8 @@ async fn main() {
 
     let cors = CorsLayer::new()
         .allow_origin(tower_http::cors::Any)
-        .allow_methods([Method::GET, Method::POST, Method::OPTIONS, Method::DELETE, Method::PATCH])
-        .allow_headers([
-            header::CONTENT_TYPE, 
-            header::AUTHORIZATION,
-            header::HeaderName::from_static("x-librarian-key"),
-            header::HeaderName::from_static("apikey"),
-        ]);
-
-    let quota = Quota::per_minute(NonZeroU32::new(60).unwrap());
-    let rate_limit_state = Arc::new(RateLimitState {
-        limiter: RateLimiter::keyed(quota),
-    });
+        .allow_methods(tower_http::cors::Any)
+        .allow_headers(tower_http::cors::Any);
 
     let state = Arc::new(AppState {
         rate_limit: rate_limit_state,
@@ -214,8 +204,8 @@ async fn main() {
         .route("/advanced-search", post(routes::search::advanced_search))
         .route("/whatsapp/send", post(send_message))
         .route("/overdue", get(routes::overdue::get_overdue_books))
-        .layer(middleware::from_fn(api_key_middleware))
-        .layer(middleware::from_fn_with_state(state.clone(), rate_limit_middleware));
+        .layer(middleware::from_fn(api_key_middleware));
+        // Removed rate limit from this layer temporarily to ensure QR stability
 
     let static_files = ServeDir::new("/app/dist")
         .fallback(ServeFile::new("/app/dist/index.html"));
@@ -223,7 +213,7 @@ async fn main() {
     let app = Router::new()
         .nest("/api", api_routes)
         .route("/", get(|| async { 
-            format!("Librarian AI Backend Gateway v{}\nStatus: Running\nMode: API Only", APP_VERSION) 
+            format!("Librarian AI Backend Gateway v{}\nStatus: Running", APP_VERSION) 
         }))
         .route("/instance/*path", any(proxy_handler))
         .route("/message/*path", any(proxy_handler))
