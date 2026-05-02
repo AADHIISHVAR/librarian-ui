@@ -58,16 +58,14 @@ async fn proxy_handler(
     
     let mut proxy_req = state.client.request(method, &target_url);
     
-    // Pass through all original headers
     for (name, value) in req.headers() {
         if name != header::HOST {
             proxy_req = proxy_req.header(name, value);
         }
     }
 
-    // FORCED INJECTION: Ensure the Evolution API always receives the correct key
-    // This solves the 403 Forbidden issue by guaranteeing authentication
-    proxy_req = proxy_req.header("apikey", "hellowork.1234");
+    // SIGN REQUEST: Use the master key to authorize internal proxy requests
+    proxy_req = proxy_req.header("apikey", LIBRARIAN_KEY);
 
     let body_bytes = axum::body::to_bytes(req.into_body(), 15 * 1024 * 1024).await.unwrap_or_default();
     let proxy_req = proxy_req.body(body_bytes);
@@ -230,6 +228,7 @@ async fn main() {
         .route("/webhook/*path", any(proxy_handler))
         .route("/typebot/*path", any(proxy_handler))
         .route("/chatwoot/*path", any(proxy_handler))
+        .layer(middleware::from_fn(api_key_middleware)) // SECURITY: Protect every route in the app
         .nest_service("/whatsapp", ServeDir::new("/app/evolution/public")
             .fallback(ServeFile::new("/app/evolution/public/index.html")))
         .route("/api/health", get(|| async { "ok" }))

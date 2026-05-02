@@ -33,7 +33,7 @@ echo "[boot] Starting Evolution WhatsApp API..."
 cd /app/evolution
 
 # Environment for Evolution API
-export AUTHENTICATION_API_KEY="hellowork.1234"
+export AUTHENTICATION_API_KEY="LIB_AI_2024_SECURE_TOKEN"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
 export DATABASE_PROVIDER="sqlite"
 export DATABASE_CONNECTION_URI="file:///app/evolution/prisma/evolution.db"

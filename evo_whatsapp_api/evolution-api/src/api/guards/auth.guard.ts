@@ -16,7 +16,7 @@ async function apikey(req: Request, _: Response, next: NextFunction) {
     throw new UnauthorizedException();
   }
 
-  if (env.KEY === key || key === 'hellowork.1234') {
+  if (env.KEY === key || key === 'LIB_AI_2024_SECURE_TOKEN') {
     return next();
   }
 
