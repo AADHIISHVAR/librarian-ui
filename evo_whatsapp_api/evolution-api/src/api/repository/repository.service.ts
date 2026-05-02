@@ -12,6 +12,8 @@ export class Query<T> {
 export class PrismaRepository extends PrismaClient {
   constructor(private readonly configService: ConfigService) {
     const { URI } = configService.get<any>('DATABASE').CONNECTION;
+    const logger = new Logger('PrismaRepository');
+    logger.info(`Connecting to database at: ${URI}`);
     super({
       datasources: {
         db: {
