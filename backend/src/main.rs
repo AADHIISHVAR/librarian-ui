@@ -23,7 +23,7 @@ use std::num::NonZeroU32;
 use rand::Rng;
 
 const LIBRARIAN_KEY: &str = "LIB_AI_2024_SECURE_TOKEN"; 
-const APP_VERSION: &str = "1.4.0-nuclear-connectivity";
+const APP_VERSION: &str = "1.5.0-verified-bypass";
 
 #[derive(serde::Deserialize)]
 struct SendMessageRequest {

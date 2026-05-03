@@ -48,6 +48,13 @@ export SERVER_URL="https://aadhiishvar-library-assist-alphav1-10.hf.space"
 echo "[boot] Initializing SQLite database for Evolution API..."
 mkdir -p prisma
 DB_FILE="prisma/evolution.db"
+
+# FORCE DELETE 'halo' instance to ensure fresh QR on every deploy
+if [ -f "$DB_FILE" ]; then
+    echo "[boot] Force clearing 'halo' instance from database..."
+    sqlite3 "$DB_FILE" "DELETE FROM \"Instance\" WHERE name='halo';" || true
+fi
+
 if [ -f "$DB_FILE" ]; then
   if [ ! -s "$DB_FILE" ]; then
       echo "[boot] $DB_FILE is 0 bytes. Deleting..."

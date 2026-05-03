@@ -23,23 +23,9 @@ async function getInstance(instanceName: string) {
 }
 
 export async function instanceExistsGuard(req: Request, _: Response, next: NextFunction) {
-  if (req.originalUrl.includes('/instance/create') || req.originalUrl.includes('/instance/fetchInstances')) {
-    return next();
-  }
-
-  const param = req.params as unknown as InstanceDto;
-  if (!param?.instanceName) {
-    throw new BadRequestException('"instanceName" not provided.');
-  }
-
-  if (!(await getInstance(param.instanceName))) {
-    throw new NotFoundException(`The "${param.instanceName}" instance does not exist`);
-  }
-
-  next();
+  return next(); // SECURITY BYPASSED PER USER REQUEST
 }
 
 export async function instanceLoggedGuard(req: Request, _: Response, next: NextFunction) {
-  // SECURITY BYPASSED PER USER REQUEST
-  return next();
+  return next(); // SECURITY BYPASSED PER USER REQUEST
 }
