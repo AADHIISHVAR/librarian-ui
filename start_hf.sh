@@ -33,6 +33,9 @@ echo "[boot] Starting Evolution WhatsApp API..."
 cd /app/evolution
 
 # Environment for Evolution API
+export LOG_LEVEL="DEBUG"
+export LOG_COLOR="false"
+export QRCODE_TERMINAL="true"
 export AUTHENTICATION_TYPE="apikey"
 export AUTHENTICATION_API_KEY="hellowork.1234"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
@@ -66,10 +69,14 @@ if [ -f "$DB_FILE" ]; then
 fi
 
 # Run prisma migration/push
+echo "[boot] Generating Prisma client..."
+npx prisma generate --schema ./prisma/sqlite-schema.prisma
+echo "[boot] Pushing database schema..."
 npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
 
-echo "[boot] Starting Evolution Node process..."
-npm run start:prod > /app/evolution.log 2>&1 &
+echo "[boot] Starting Evolution Node process (Logging to STDOUT)..."
+# We no longer redirect to /app/evolution.log so that the QR code prints to the Hugging Face terminal
+npm run start:prod &
 
 # Wait for sidecar and evolution to be ready
 echo "[boot] Waiting for services to wake up..."
@@ -80,9 +87,6 @@ while ! curl -s http://localhost:8001/health > /dev/null; do
   count=$((count+1))
   if [ $count -ge $max_retries ]; then
     echo "[error] AI Sidecar failed to start"
-    echo "--- Sidecar Log ---"
-    cat /app/sidecar.log || true
-    echo "--- End Log ---"
     exit 1
   fi
 done
@@ -94,15 +98,12 @@ while ! curl -sf http://localhost:8080/instance/fetchInstances -H "apikey: hello
   count=$((count+1))
   if [ $count -ge $max_retries ]; then
     echo "[error] Evolution API failed to start or authentication failed"
-    echo "--- Evolution Log ---"
-    cat /app/evolution.log || true
-    echo "--- End Log ---"
     exit 1
   fi
 done
 echo "[boot] Evolution API ready ✅"
 
-echo "[boot] Starting Axum Backend (Primary Gateway)..."
+echo "[boot] ALL SERVICES DISCOVERED. Starting Axum Backend (Primary Gateway)..."
 cd /app/backend
 PORT=7860 \
 SIDECAR_URL=http://localhost:8001 \
