@@ -1,30 +1,23 @@
-# Librarian AI — Project Context (Updated May 2, 2026)
+# Librarian AI — Project Context (Updated May 3, 2026)
 
-A comprehensive library assistant system that combines vector-based semantic search with Large Language Models (LLMs) and automated student notification systems. **Status: All systems fully operational, synchronized, and hardened.**
+A comprehensive library assistant system that combines vector-based semantic search with Large Language Models (LLMs) and automated student notification systems.
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture Overview (Split Deployment)
 
-The project is deployed as a **CI/CD Integrated Multi-Service System**, leveraging GitHub's infrastructure for builds and Hugging Face for stable runtime.
+The project is now deployed using a split architecture for maximum reliability and build stability:
 
-1.  **Deployment Engine (GitHub Actions + GHCR):**
-    *   **Heavy Lifting:** All compilation (Rust 1.85, Node build, Torch) happens on GitHub to avoid 16GB RAM limits on HF.
-    *   **LFS Support:** `checkout@v4` with `lfs: true` and explicit `git lfs pull` ensures real database files are included in the image.
-    *   **Registry:** Images are served via `ghcr.io/aadhiishvar/librarian-ai:latest`. (Must be set to **Public**).
+1.  **Frontend (GitHub Pages):**
+    *   **Hosting:** Served from `https://aadhiishvar.github.io/librarian-ui`.
+    *   **CI/CD:** Automatically built and deployed via `.github/workflows/deploy-frontend.yml`.
+    *   **Config:** Communicates with the Hugging Face backend URL.
 
-2.  **Backend Gateway (Rust/Axum):** 
-    *   **Primary Gateway:** Built with Rust 1.85 (Edition 2024).
-    *   **Auth:** Secured via `hellowork.1234`. Origin-agnostic middleware ensures global accessibility.
+2.  **Backend & AI Services (Hugging Face):**
+    *   **Natively Built:** Build is handled directly by Hugging Face using the self-contained `Dockerfile`.
+    *   **Services:** Runs the Rust Axum Gateway (Port 7860), AI Sidecar (Port 8001), and Evolution API (Port 8080).
+    *   **Reliability:** No longer dependent on external GHCR image pulls.
 
-3.  **Svelte Frontend (JS):**
-    *   **Admin Portal:** Integrated WhatsApp instance management, QR/Pairing code display, and overdue tracking.
-
-4.  **AI Sidecar (Python/FastAPI):**
-    *   **Semantic Search:** Using `sqlite-vec`. Aligned with `unique_books` schema.
-    *   **Robustness:** Handles null/missing search filters gracefully (resolves 422 errors).
-
-5.  **Evolution API (Node.js):**
-    *   **WhatsApp Core:** Hardened for zero-dependency local mode.
-    *   **Connectivity:** Fixed QR generation by disabling Redis and forcing global API key `hellowork.1234`.
+3.  **Hugging Face "Thin Repository":**
+    *   Hugging Face builds from source on every push to the `hf` remote.
 
 ## 🚀 WhatsApp & Notification System
 
