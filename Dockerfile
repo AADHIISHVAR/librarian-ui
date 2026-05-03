@@ -78,8 +78,8 @@ COPY uniqueBooks.db /app/uniqueBooks.db
 COPY start_hf.sh ./
 
 # 6. Final Setup
-RUN mkdir -p /app/evolution/instances && \
-    chmod -R 777 /app/evolution && \
+RUN mkdir -p /app/evolution/instances /app/evolution/prisma /app/sidecar /app/backend /app/dist && \
+    chmod -R 777 /app && \
     cp /app/uniqueBooks.db /app/library_database.db && \
     \
     chmod +x /app/start_hf.sh

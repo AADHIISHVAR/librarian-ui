@@ -32,10 +32,23 @@ python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 > /app/sidecar.log 2>&1 &
 echo "[boot] Starting Evolution WhatsApp API..."
 cd /app/evolution
 
-# Environment for Evolution API
+# Environment for Evolution API - HARDENED FOR HF
+export LOG_LEVEL="DEBUG"
+export LOG_COLOR="false"
+export LOG_Pino_Pretty="true"
+export QRCODE_TERMINAL="true"
 export AUTHENTICATION_TYPE="apikey"
 export AUTHENTICATION_API_KEY="hellowork.1234"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
+
+# Fix permissions at runtime (HF runs as user 1000)
+echo "[boot] Fixing permissions for $(whoami)..."
+mkdir -p /app/evolution/instances
+mkdir -p /app/evolution/prisma
+chmod -R 777 /app/evolution
+chmod -R 777 /app/sidecar
+chmod -R 777 /app/backend
+
 
 # Database Configuration (Hardened for SQLite)
 export DATABASE_PROVIDER="sqlite"
