@@ -61,8 +61,10 @@ export QRCODE_LIMIT=30
 
 # Initialize SQLite database
 echo "[boot] Initializing SQLite database for Evolution API..."
-mkdir -p prisma
-DB_FILE="prisma/evolution.db"
+mkdir -p /app/evolution/prisma
+mkdir -p /app/evolution/instances
+chmod 777 /app/evolution/instances
+DB_FILE="/app/evolution/prisma/evolution.db"
 
 # NUCLEAR CLEANUP: Remove 'halo' instance and its session to FORCE fresh QR generation
 if [ -f "$DB_FILE" ]; then
