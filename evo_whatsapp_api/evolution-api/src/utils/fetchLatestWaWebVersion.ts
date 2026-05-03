@@ -9,7 +9,7 @@ export const fetchLatestWaWebVersion = async (options: AxiosRequestConfig<{}>) =
       responseType: 'text',
     });
 
-    const regex = /client_revision\s*:\s*(\d+)/;
+    const regex = /client_revision\\?"\s*:\s*(\d+)/;
     const match = data.match(regex);
 
     if (!match?.[1]) {
