@@ -117,6 +117,17 @@ while ! curl -sf http://localhost:8080/instance/fetchInstances -H "apikey: hello
 done
 echo "[boot] Evolution API ready ✅"
 
+# FORCE CREATE 'halo' instance now to trigger QR generation in terminal
+echo "[boot] Auto-provisioning 'halo' instance..."
+curl -s -X POST "http://localhost:8080/instance/create" \
+     -H "Content-Type: application/json" \
+     -H "apikey: hellowork.1234" \
+     -d '{
+       "instanceName": "halo",
+       "qrcode": true,
+       "integration": "WHATSAPP-BAILEYS"
+     }' || echo "[warn] Auto-provisioning failed (may already exist)"
+
 echo "[boot] ALL SERVICES DISCOVERED. Starting Axum Backend (Primary Gateway)..."
 cd /app/backend
 PORT=7860 \

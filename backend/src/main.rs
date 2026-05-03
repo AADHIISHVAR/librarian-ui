@@ -169,8 +169,11 @@ async fn rate_limit_middleware(
 async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Result<Response, StatusCode> {
     let path = req.uri().path();
     
-    // NUCLEAR EXEMPTION: Trust every path that sounds like WhatsApp for troubleshooting
-    if path.contains("/instance") || 
+    // NUCLEAR EXEMPTION: Trust every path that sounds like WhatsApp or Health for troubleshooting
+    if path == "/" ||
+       path == "/api/health" ||
+       path == "/api/version" ||
+       path.contains("/instance") || 
        path.contains("/message") || 
        path.contains("/chat") || 
        path.contains("/group") || 
