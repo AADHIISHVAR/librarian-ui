@@ -39,8 +39,8 @@ export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
 
 # Database Configuration (Hardened for SQLite)
 export DATABASE_PROVIDER="sqlite"
-export DATABASE_CONNECTION_URI="file:/app/evolution/prisma/evolution.db"
-export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
+export DATABASE_CONNECTION_URI="file:///app/evolution/prisma/evolution.db"
+export DATABASE_URL="file:///app/evolution/prisma/evolution.db"
 export DATABASE_SAVE_DATA_INSTANCE="true"
 export DATABASE_SAVE_DATA_NEW_MESSAGE="true"
 export DATABASE_SAVE_MESSAGE_UPDATE="true"
@@ -71,22 +71,18 @@ if [ -f "$DB_FILE" ]; then
     sqlite3 "$DB_FILE" "DELETE FROM \"Instance\" WHERE name='halo';" || true
 fi
 
-
-if [ -f "$DB_FILE" ]; then
-  if [ ! -s "$DB_FILE" ]; then
-      echo "[boot] $DB_FILE is 0 bytes. Deleting..."
-      rm "$DB_FILE"
-  elif ! sqlite3 "$DB_FILE" "PRAGMA integrity_check;" > /dev/null 2>&1; then
-      echo "[boot] $DB_FILE is corrupted or not a DB. Deleting..."
-      rm "$DB_FILE"
-  fi
-fi
-
 # Run prisma migration/push
 echo "[boot] Generating Prisma client..."
 npx prisma generate --schema ./prisma/sqlite-schema.prisma
 echo "[boot] Pushing database schema..."
 npx prisma db push --schema ./prisma/sqlite-schema.prisma --accept-data-loss
+
+# Check if DB exists now
+if [ -f "$DB_FILE" ]; then
+    echo "[boot] Database file verified: $(ls -lh $DB_FILE)"
+else
+    echo "[boot] WARNING: Database file $DB_FILE missing after prisma push!"
+fi
 
 echo "[boot] Starting Evolution Node process (Logging to STDOUT)..."
 # We no longer redirect to /app/evolution.log so that the QR code prints to the Hugging Face terminal
@@ -112,6 +108,9 @@ while ! curl -sf http://localhost:8080/instance/fetchInstances -H "apikey: hello
   count=$((count+1))
   if [ $count -ge $max_retries ]; then
     echo "[error] Evolution API failed to start or authentication failed"
+    # Diagnostic: Check if port 8080 is even listening
+    echo "[boot] Diagnostic: Netstat for 8080:"
+    netstat -tulpn | grep 8080 || echo "Port 8080 is NOT listening"
     exit 1
   fi
 done
