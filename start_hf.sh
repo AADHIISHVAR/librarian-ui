@@ -36,9 +36,20 @@ cd /app/evolution
 export AUTHENTICATION_TYPE="apikey"
 export AUTHENTICATION_API_KEY="hellowork.1234"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
+
+# Database Configuration (Hardened for SQLite)
 export DATABASE_PROVIDER="sqlite"
-export DATABASE_CONNECTION_URI="file:///app/evolution/prisma/evolution.db"
-export DATABASE_URL="file:///app/evolution/prisma/evolution.db"
+export DATABASE_CONNECTION_URI="file:/app/evolution/prisma/evolution.db"
+export DATABASE_URL="file:/app/evolution/prisma/evolution.db"
+export DATABASE_SAVE_DATA_INSTANCE="true"
+export DATABASE_SAVE_DATA_NEW_MESSAGE="true"
+export DATABASE_SAVE_MESSAGE_UPDATE="true"
+export DATABASE_SAVE_DATA_CONTACTS="true"
+export DATABASE_SAVE_DATA_CHATS="true"
+export DATABASE_SAVE_DATA_HISTORIC="true"
+export DATABASE_SAVE_DATA_LABELS="true"
+
+# Cache & Connection
 export CACHE_REDIS_ENABLED="false"
 export CACHE_LOCAL_ENABLED="true"
 export WEBHOOK_GLOBAL_ENABLED="false"
@@ -52,11 +63,12 @@ echo "[boot] Initializing SQLite database for Evolution API..."
 mkdir -p prisma
 DB_FILE="prisma/evolution.db"
 
-# NUCLEAR CLEANUP: Remove 'halo' instance to FORCE fresh QR generation
+# NUCLEAR CLEANUP: Remove 'halo' instance and its session to FORCE fresh QR generation
 if [ -f "$DB_FILE" ]; then
-    echo "[boot] Scrubbing 'halo' instance for fresh start..."
-    sqlite3 "$DB_FILE" "DELETE FROM \"Instance\" WHERE name='halo';" || true
+    echo "[boot] Scrubbing 'halo' session data for fresh start..."
+    # Correct order: Delete Session first (related by sessionId), then Instance
     sqlite3 "$DB_FILE" "DELETE FROM \"Session\" WHERE sessionId IN (SELECT id FROM \"Instance\" WHERE name='halo');" || true
+    sqlite3 "$DB_FILE" "DELETE FROM \"Instance\" WHERE name='halo';" || true
 fi
 
 
