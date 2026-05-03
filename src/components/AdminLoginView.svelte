@@ -34,6 +34,7 @@
 
   const instanceName = "halo";
   let pollInterval;
+  let isPolling = false;
 
   async function checkSetup() {
     try {
@@ -68,12 +69,16 @@
     try {
       console.log("[admin] Fetching connection data (QR/Pairing)...");
       const res = await connectInstance(instanceName, num);
-      if (res.base64) {
-        qrCode = res.base64.startsWith('data:') ? res.base64 : `data:image/png;base64,${res.base64}`;
+      
+      // Handle both top-level and nested qrcode object formats
+      const qrData = res.qrcode || res;
+      
+      if (qrData.base64) {
+        qrCode = qrData.base64.startsWith('data:') ? qrData.base64 : `data:image/png;base64,${qrData.base64}`;
         console.log("[admin] QR Code received");
       }
-      if (res.pairingCode) {
-        pairingCode = res.pairingCode;
+      if (qrData.pairingCode) {
+        pairingCode = qrData.pairingCode;
         console.log("[admin] Pairing Code received:", pairingCode);
       }
     } catch (e) {
@@ -87,19 +92,29 @@
       isLoggedIn = true;
       error = "";
       startPolling();
-      checkSetup();
     } else {
       error = "Invalid username or password";
     }
   }
 
-  function startPolling() {
-    pollInterval = setInterval(() => {
-      checkSetup();
+  async function runPoll() {
+    if (isPolling) return;
+    isPolling = true;
+    try {
+      await checkSetup();
       if (connStatus === "login" && !isPairingLoading) {
-        fetchConnData();
+        await fetchConnData();
       }
-    }, 5000);
+    } finally {
+      isPolling = false;
+    }
+  }
+
+  function startPolling() {
+    // Initial run
+    runPoll();
+    // Subsequent intervals
+    pollInterval = setInterval(runPoll, 5000);
   }
 
   onDestroy(() => {

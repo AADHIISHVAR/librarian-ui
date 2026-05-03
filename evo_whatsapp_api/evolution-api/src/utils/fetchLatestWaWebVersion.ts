@@ -5,6 +5,7 @@ export const fetchLatestWaWebVersion = async (options: AxiosRequestConfig<{}>) =
   try {
     const { data } = await axios.get('https://web.whatsapp.com/sw.js', {
       ...options,
+      timeout: 5000,
       responseType: 'json',
     });
 
