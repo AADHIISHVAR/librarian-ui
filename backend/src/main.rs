@@ -56,6 +56,8 @@ async fn proxy_handler(
     let path_query = req.uri().path_and_query().map(|pq| pq.as_str()).unwrap_or("");
     let target_url = format!("http://127.0.0.1:8080{}", path_query);
     
+    tracing::debug!("[proxy] {} -> {}", method, target_url);
+    
     let mut proxy_req = state.client.request(method, &target_url);
     
     // Pass through all original headers EXCEPT Cache-related ones to avoid 304 issues

@@ -47,10 +47,13 @@
           connStatus = "login";
         }
       } else {
+        console.log("[admin] 'halo' instance not found, creating...");
         await createInstance(instanceName);
         connStatus = "login";
       }
     } catch (e) {
+      console.error("[admin] checkSetup error:", e);
+      error = "WhatsApp API sync failed: " + e.message;
       connStatus = "login";
     }
   }
@@ -63,14 +66,19 @@
     }
 
     try {
+      console.log("[admin] Fetching connection data (QR/Pairing)...");
       const res = await connectInstance(instanceName, num);
       if (res.base64) {
         qrCode = res.base64.startsWith('data:') ? res.base64 : `data:image/png;base64,${res.base64}`;
+        console.log("[admin] QR Code received");
       }
       if (res.pairingCode) {
         pairingCode = res.pairingCode;
+        console.log("[admin] Pairing Code received:", pairingCode);
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error("[admin] fetchConnData error:", e);
+    }
     isPairingLoading = false;
   }
 

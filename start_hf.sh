@@ -33,9 +33,6 @@ echo "[boot] Starting Evolution WhatsApp API..."
 cd /app/evolution
 
 # Environment for Evolution API
-export LOG_LEVEL="DEBUG"
-export LOG_COLOR="false"
-export QRCODE_TERMINAL="true"
 export AUTHENTICATION_TYPE="apikey"
 export AUTHENTICATION_API_KEY="hellowork.1234"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
@@ -46,17 +43,22 @@ export CACHE_REDIS_ENABLED="false"
 export CACHE_LOCAL_ENABLED="true"
 export WEBHOOK_GLOBAL_ENABLED="false"
 export SERVER_URL="https://aadhiishvar-library-assist-alphav1-10.hf.space"
+export LOG_LEVEL="INFO,ERROR,WARN"
+export LOG_COLOR="true"
+export QRCODE_LIMIT=30
 
 # Initialize SQLite database
 echo "[boot] Initializing SQLite database for Evolution API..."
 mkdir -p prisma
 DB_FILE="prisma/evolution.db"
 
-# FORCE DELETE 'halo' instance to ensure fresh QR on every deploy
+# NUCLEAR CLEANUP: Remove 'halo' instance to FORCE fresh QR generation
 if [ -f "$DB_FILE" ]; then
-    echo "[boot] Force clearing 'halo' instance from database..."
+    echo "[boot] Scrubbing 'halo' instance for fresh start..."
     sqlite3 "$DB_FILE" "DELETE FROM \"Instance\" WHERE name='halo';" || true
+    sqlite3 "$DB_FILE" "DELETE FROM \"Session\" WHERE sessionId IN (SELECT id FROM \"Instance\" WHERE name='halo');" || true
 fi
+
 
 if [ -f "$DB_FILE" ]; then
   if [ ! -s "$DB_FILE" ]; then
