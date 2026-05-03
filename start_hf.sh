@@ -56,6 +56,7 @@ export WEBHOOK_GLOBAL_ENABLED="false"
 export SERVER_URL="https://aadhiishvar-library-assist-alphav1-10.hf.space"
 export LOG_LEVEL="INFO,ERROR,WARN"
 export LOG_COLOR="true"
+export DEL_INSTANCE="false"
 export QRCODE_LIMIT=30
 
 # Initialize SQLite database
