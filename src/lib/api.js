@@ -5,7 +5,7 @@ const BACKEND_URL = isGitHubPages
   ? "https://aadhiishvar-library-assist-alphav1-10.hf.space" 
   : "";
 
-const LIBRARIAN_KEY = "LIB_AI_2024_SECURE_TOKEN";
+const LIBRARIAN_KEY = "hellowork.1234";
 
 export async function search(prompt, library = "all") {
   const res = await fetch(`${BACKEND_URL}/api/search`, {

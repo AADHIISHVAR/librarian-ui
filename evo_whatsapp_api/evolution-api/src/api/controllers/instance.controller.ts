@@ -36,6 +36,21 @@ export class InstanceController {
 
   public async createInstance(instanceData: InstanceDto) {
     try {
+      // NUCLEAR FIX: If instance exists, delete it first to ensure fresh QR
+      try {
+        const exists = await this.prismaRepository.instance.findUnique({
+          where: { name: instanceData.instanceName },
+        });
+        if (exists) {
+          this.logger.warn(`Instance "${instanceData.instanceName}" already exists. Deleting for fresh start.`);
+          await this.deleteInstance({ instanceName: instanceData.instanceName });
+          // Wait a moment for deletion to propagate
+          await delay(2000);
+        }
+      } catch (e) {
+        this.logger.error("Error during pre-deletion check: " + e.message);
+      }
+
       const instance = channelController.init(instanceData, {
         configService: this.configService,
         eventEmitter: this.eventEmitter,
@@ -339,7 +354,8 @@ export class InstanceController {
       };
     } catch (error) {
       this.logger.error(error);
-      return { error: true, message: error.toString() };
+      const errMsg = error.message || (typeof error === 'string' ? error : JSON.stringify(error));
+      return { error: true, message: errMsg };
     }
   }
 
@@ -386,7 +402,8 @@ export class InstanceController {
       };
     } catch (error) {
       this.logger.error(error);
-      return { error: true, message: error.toString() };
+      const errMsg = error.message || (typeof error === 'string' ? error : JSON.stringify(error));
+      return { error: true, message: errMsg };
     }
   }
 

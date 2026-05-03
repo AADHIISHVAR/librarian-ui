@@ -13,7 +13,7 @@ The project is deployed as a **CI/CD Integrated Multi-Service System**, leveragi
 
 2.  **Backend Gateway (Rust/Axum):** 
     *   **Primary Gateway:** Built with Rust 1.85 (Edition 2024).
-    *   **Auth:** Secured via `LIB_AI_2024_SECURE_TOKEN`. Origin-agnostic middleware ensures global accessibility.
+    *   **Auth:** Secured via `hellowork.1234`. Origin-agnostic middleware ensures global accessibility.
 
 3.  **Svelte Frontend (JS):**
     *   **Admin Portal:** Integrated WhatsApp instance management, QR/Pairing code display, and overdue tracking.

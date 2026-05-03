@@ -34,7 +34,7 @@ cd /app/evolution
 
 # Environment for Evolution API
 export AUTHENTICATION_TYPE="apikey"
-export AUTHENTICATION_API_KEY="LIB_AI_2024_SECURE_TOKEN"
+export AUTHENTICATION_API_KEY="hellowork.1234"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
 export DATABASE_PROVIDER="sqlite"
 export DATABASE_CONNECTION_URI="file:///app/evolution/prisma/evolution.db"
@@ -89,11 +89,11 @@ done
 echo "[boot] AI Sidecar ready ✅"
 
 count=0
-while ! curl -s http://localhost:8080/instance/fetchInstances -H "apikey: hellowork.1234" > /dev/null; do
+while ! curl -sf http://localhost:8080/instance/fetchInstances -H "apikey: hellowork.1234" > /dev/null; do
   sleep 2
   count=$((count+1))
   if [ $count -ge $max_retries ]; then
-    echo "[error] Evolution API failed to start"
+    echo "[error] Evolution API failed to start or authentication failed"
     echo "--- Evolution Log ---"
     cat /app/evolution.log || true
     echo "--- End Log ---"
