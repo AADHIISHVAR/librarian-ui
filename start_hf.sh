@@ -41,13 +41,19 @@ export AUTHENTICATION_TYPE="apikey"
 export AUTHENTICATION_API_KEY="hellowork.1234"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
 
-# CRITICAL: Force IPv4 to resolve "Handshake Timed Out" / EPROTO errors on cloud providers
-export NODE_OPTIONS="--dns-result-order=ipv4first --max-old-space-size=1536"
+# CRITICAL: Force IPv4 and specific WhatsApp version
+export NODE_OPTIONS="--dns-result-order=ipv4first --max-old-space-size=2048"
+export WA_WEB_VERSION="2.3000.1018224522"
+
+# Force IPv4 at the host level (works if running as root)
+echo "57.144.55.32 web.whatsapp.com" >> /etc/hosts || echo "[warn] Failed to update /etc/hosts"
+echo "157.240.22.60 e.whatsapp.net" >> /etc/hosts || echo "[warn] Failed to update /etc/hosts"
+echo "157.240.22.60 g.whatsapp.net" >> /etc/hosts || echo "[warn] Failed to update /etc/hosts"
 
 # Better session identification
 export CONFIG_SESSION_PHONE_CLIENT="Librarian AI"
-export CONFIG_SESSION_PHONE_NAME="Chrome"
-export LOG_BAILEYS="debug"
+export CONFIG_SESSION_PHONE_NAME="Chrome (Linux)"
+export LOG_BAILEYS="info"
 
 # Diagnostic: Deep Network Audit
 echo "[boot] Network Audit: Testing reachability and DNS..."
