@@ -41,6 +41,11 @@ export AUTHENTICATION_TYPE="apikey"
 export AUTHENTICATION_API_KEY="hellowork.1234"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
 
+# Better session identification
+export CONFIG_SESSION_PHONE_CLIENT="Librarian AI"
+export CONFIG_SESSION_PHONE_NAME="Evolution API"
+export LOG_BAILEYS="debug"
+
 # Fix permissions at runtime (HF runs as user 1000)
 echo "[boot] Fixing permissions for $(whoami)..."
 mkdir -p /app/evolution/instances
@@ -76,15 +81,19 @@ export QRCODE_LIMIT=30
 echo "[boot] Initializing SQLite database for Evolution API..."
 mkdir -p /app/evolution/prisma
 mkdir -p /app/evolution/instances
-chmod 777 /app/evolution/instances
+chmod -R 777 /app/evolution/instances
 DB_FILE="/app/evolution/prisma/evolution.db"
 
-# NUCLEAR CLEANUP: Remove 'halo' instance and its session to FORCE fresh QR generation
+# NUCLEAR CLEANUP: Completely wipe 'halo' state to ensure a fresh session
+echo "[boot] Wiping any existing 'halo' session files and database entries..."
+rm -rf /app/evolution/instances/halo
+rm -f /tmp/whatsapp_qr.json
+
 if [ -f "$DB_FILE" ]; then
-    echo "[boot] Scrubbing 'halo' session data for fresh start..."
-    # Correct order: Delete Session first (related by sessionId), then Instance
+    echo "[boot] Cleaning database entries for 'halo'..."
     sqlite3 "$DB_FILE" "DELETE FROM \"Session\" WHERE sessionId IN (SELECT id FROM \"Instance\" WHERE name='halo');" || true
     sqlite3 "$DB_FILE" "DELETE FROM \"Instance\" WHERE name='halo';" || true
+    sqlite3 "$DB_FILE" "VACUUM;" || true
 fi
 
 # Run prisma migration/push
@@ -101,7 +110,8 @@ else
 fi
 
 echo "[boot] Starting Evolution Node process (Logging to STDOUT)..."
-# We no longer redirect to /app/evolution.log so that the QR code prints to the Hugging Face terminal
+# Setting LOG_LEVEL to DEBUG to capture linkage failures
+export LOG_LEVEL="DEBUG"
 npm run start:prod &
 
 # Wait for sidecar and evolution to be ready
