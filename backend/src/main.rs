@@ -23,7 +23,7 @@ use std::num::NonZeroU32;
 use rand::Rng;
 
 const LIBRARIAN_KEY: &str = "hellowork.1234"; 
-const APP_VERSION: &str = "1.5.0-verified-bypass";
+const APP_VERSION: &str = "1.5.1-qr-wait";
 
 #[derive(serde::Deserialize)]
 struct SendMessageRequest {
