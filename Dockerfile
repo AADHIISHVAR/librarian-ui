@@ -48,6 +48,8 @@ FROM python:3.11-slim
 # 1. System Runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ffmpeg openssl sqlite3 libsqlite3-dev build-essential \
+    iproute2 iputils-ping dnsutils ca-certificates \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Node.js for Evolution API
