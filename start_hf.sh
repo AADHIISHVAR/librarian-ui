@@ -47,11 +47,32 @@ export NODE_OPTIONS="--dns-result-order=ipv4first --max-old-space-size=1536"
 # Better session identification
 export CONFIG_SESSION_PHONE_CLIENT="Librarian AI"
 export CONFIG_SESSION_PHONE_NAME="Chrome"
-export LOG_BAILEYS="info"
+export LOG_BAILEYS="debug"
 
-# Diagnostic: Check network reachability
-echo "[boot] Diagnostic: Checking connectivity to WhatsApp..."
-curl -v -m 5 https://web.whatsapp.com > /tmp/wa_check.log 2>&1 || echo "[warn] web.whatsapp.com reachability check failed"
+# Diagnostic: Deep Network Audit
+echo "[boot] Network Audit: Testing reachability and DNS..."
+(
+  echo "--- DNS Check ---"
+  getent hosts web.whatsapp.com || echo "web.whatsapp.com resolution failed"
+  getent hosts g.whatsapp.net || echo "g.whatsapp.net resolution failed"
+  
+  echo "--- Ping Check ---"
+  ping -c 1 -W 2 8.8.8.8 || echo "Ping to 8.8.8.8 failed"
+  
+  echo "--- Port 443 Check ---"
+  timeout 3 bash -c 'cat < /dev/null > /dev/tcp/web.whatsapp.com/443' && echo "Port 443 OK" || echo "Port 443 CLOSED"
+  
+  echo "--- Port 5222 Check (WhatsApp Protocol) ---"
+  timeout 3 bash -c 'cat < /dev/null > /dev/tcp/e.whatsapp.net/5222' && echo "Port 5222 OK" || echo "Port 5222 CLOSED"
+  
+  echo "--- MTU Check ---"
+  ip addr show | grep mtu
+) > /tmp/network_audit.log 2>&1
+cat /tmp/network_audit.log
+
+# Baileys Tweak: Try to force specific connection behavior via env
+export WA_MOBILE="false"
+export WA_BROWSER="Chrome"
 
 # Fix permissions at runtime (HF runs as user 1000)
 echo "[boot] Fixing permissions for $(whoami)..."
