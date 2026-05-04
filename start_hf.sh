@@ -71,6 +71,7 @@ export DATABASE_SAVE_DATA_LABELS="true"
 export CACHE_REDIS_ENABLED="false"
 export CACHE_LOCAL_ENABLED="true"
 export WEBHOOK_GLOBAL_ENABLED="false"
+# Canonical HF Space URL (usually lowercase)
 export SERVER_URL="https://aadhiishvar-library-assist-alphav1-10.hf.space"
 export LOG_LEVEL="INFO,ERROR,WARN"
 export LOG_COLOR="true"
@@ -83,6 +84,12 @@ mkdir -p /app/evolution/prisma
 mkdir -p /app/evolution/instances
 chmod -R 777 /app/evolution/instances
 DB_FILE="/app/evolution/prisma/evolution.db"
+
+# Create dummy DB if it doesn't exist so sqlite3 doesn't fail
+if [ ! -f "$DB_FILE" ]; then
+    echo "[boot] Creating initial empty database..."
+    sqlite3 "$DB_FILE" "VACUUM;"
+fi
 
 # NUCLEAR CLEANUP: Completely wipe 'halo' state to ensure a fresh session
 echo "[boot] Wiping any existing 'halo' session files and database entries..."

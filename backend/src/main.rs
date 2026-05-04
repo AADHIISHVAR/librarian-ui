@@ -301,6 +301,20 @@ async fn main() {
                 Err(_) => (StatusCode::NOT_FOUND, "QR not ready").into_response(),
             }
         }))
+        .route("/api/admin/db-check", get(|| async {
+            let db_path = "/app/evolution/prisma/evolution.db";
+            match std::process::Command::new("sqlite3")
+                .arg(db_path)
+                .arg("SELECT name, connectionStatus, number FROM Instance;")
+                .output() {
+                Ok(output) => {
+                    let res = String::from_utf8_lossy(&output.stdout).to_string();
+                    let err = String::from_utf8_lossy(&output.stderr).to_string();
+                    (StatusCode::OK, format!("Out: {}\nErr: {}", res, err)).into_response()
+                },
+                Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed: {}", e)).into_response(),
+            }
+        }))
         .route("/api/health", get(|| async { "ok" }))
         .route("/api/version", get(|| async { APP_VERSION }))
         .route("/", get(|| async { format!("Librarian AI Nuclear Gateway v{}", APP_VERSION) }))

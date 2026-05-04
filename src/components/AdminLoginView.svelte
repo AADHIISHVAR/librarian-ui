@@ -156,6 +156,21 @@
     }
   }
 
+  async function forceReset() {
+    if (!confirm("This will disconnect WhatsApp and clear the session. Continue?")) return;
+    try {
+        connStatus = "checking";
+        await logoutInstance(instanceName);
+        qrCode = null;
+        pairingCode = null;
+        infoMsg = "Instance reset successfully. Generating new QR...";
+        setTimeout(runPoll, 2000);
+    } catch (e) {
+        error = "Reset failed: " + e.message;
+        connStatus = "login";
+    }
+  }
+
   function startPolling() {
     void runPoll();
     // Slightly faster while linking WhatsApp so QR appears soon after the server generates it
@@ -270,8 +285,9 @@
             {/if}
           </div>
         </div>
-        <div style="text-align: center; margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+        <div style="text-align: center; margin-top: 2rem; border-top: 1px solid var(--border); padding-top: 1rem; display: flex; justify-content: center; gap: 1rem;">
           <button class="secondary-btn" on:click={checkSetup}>Refresh Status</button>
+          <button class="secondary-btn" style="color: #ef4444; border-color: rgba(239, 68, 68, 0.3);" on:click={forceReset}>Force Reset Instance</button>
         </div>
       </div>
     {:else}
