@@ -75,6 +75,12 @@ async fn proxy_handler(
     // SIGN REQUEST: Use the master key to authorize internal proxy requests
     proxy_req = proxy_req.header("apikey", LIBRARIAN_KEY);
 
+    // CLEAR CACHE ON LOGOUT: If we are logging out 'halo', delete the cached QR
+    if method == Method::DELETE && path_query.contains("/instance/logout/halo") {
+        let _ = std::fs::remove_file("/tmp/whatsapp_qr.json");
+        println!("[proxy] Cleared QR cache due to logout of 'halo'");
+    }
+
     let body_bytes = axum::body::to_bytes(req.into_body(), 20 * 1024 * 1024).await.unwrap_or_default();
     let proxy_req = proxy_req.body(body_bytes);
 
@@ -94,48 +100,38 @@ async fn proxy_handler(
                 }
             }
             let bytes = resp.bytes().await.unwrap_or_default();
+            
+            // DETECT AND CACHE QR CODE
             if path_query.contains("/instance/connect") {
-                match serde_json::from_slice::<serde_json::Value>(&bytes) {
-                    Ok(v) => {
-                        let nested = v.get("qrcode");
-                        let code_top = v
-                            .get("code")
-                            .and_then(|c| c.as_str())
-                            .map(|s| s.len())
-                            .unwrap_or(0);
-                        let code_nested = nested
-                            .and_then(|q| q.get("code"))
-                            .and_then(|c| c.as_str())
-                            .map(|s| s.len())
-                            .unwrap_or(0);
-                        let b64_top = v
-                            .get("base64")
-                            .and_then(|b| b.as_str())
-                            .map(|s| s.len())
-                            .unwrap_or(0);
-                        let b64_nested = nested
-                            .and_then(|q| q.get("base64"))
-                            .and_then(|b| b.as_str())
-                            .map(|s| s.len())
-                            .unwrap_or(0);
-                        let keys: Vec<String> = v
-                            .as_object()
-                            .map(|o| o.keys().cloned().collect())
-                            .unwrap_or_default();
-                        tracing::warn!(
-                            "[proxy][instance/connect] body_bytes={} code_len_top={} code_len_nested={} base64_len_top={} base64_len_nested={} keys={:?}",
-                            bytes.len(),
-                            code_top,
-                            code_nested,
-                            b64_top,
-                            b64_nested,
-                            keys
-                        );
+                if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&bytes) {
+                    let qr_data = v.get("qrcode").or(v.get("data").and_then(|d| d.get("qrcode"))).unwrap_or(&v);
+                    let code = qr_data.get("code").and_then(|c| c.as_str());
+                    let b64 = qr_data.get("base64").and_then(|b| b.as_str());
+
+                    if code.is_some() || b64.is_some() {
+                        println!("[proxy][qr] Detected QR code in response. Updating cache...");
+                        
+                        let cache_obj = serde_json::json!({
+                            "code": code,
+                            "base64": b64,
+                            "timestamp": std::time::SystemTime::now()
+                                .duration_since(std::time::UNIX_EPOCH)
+                                .unwrap_or_default()
+                                .as_secs()
+                        });
+                        let _ = std::fs::write("/tmp/whatsapp_qr.json", cache_obj.to_string());
+
+                        if let Some(c) = code {
+                            let js = format!(
+                                "const qrt=require('qrcode-terminal');qrt.generate('{}',{{small:true}},(o)=>console.log('\\n[proxy] NEW WHATSAPP QR SCAN NOW:\\n'+o));",
+                                c
+                            );
+                            let _ = std::process::Command::new("node")
+                                .arg("-e")
+                                .arg(js)
+                                .spawn();
+                        }
                     }
-                    Err(_) => tracing::warn!(
-                        "[proxy][instance/connect] body_bytes={} (non-JSON body)",
-                        bytes.len()
-                    ),
                 }
             }
             builder.body(Body::from(bytes)).unwrap().into_response()
