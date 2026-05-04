@@ -41,10 +41,17 @@ export AUTHENTICATION_TYPE="apikey"
 export AUTHENTICATION_API_KEY="hellowork.1234"
 export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
 
+# CRITICAL: Force IPv4 to resolve "Handshake Timed Out" / EPROTO errors on cloud providers
+export NODE_OPTIONS="--dns-result-order=ipv4first --max-old-space-size=1536"
+
 # Better session identification
 export CONFIG_SESSION_PHONE_CLIENT="Librarian AI"
-export CONFIG_SESSION_PHONE_NAME="Evolution API"
-export LOG_BAILEYS="debug"
+export CONFIG_SESSION_PHONE_NAME="Chrome"
+export LOG_BAILEYS="info"
+
+# Diagnostic: Check network reachability
+echo "[boot] Diagnostic: Checking connectivity to WhatsApp..."
+curl -v -m 5 https://web.whatsapp.com > /tmp/wa_check.log 2>&1 || echo "[warn] web.whatsapp.com reachability check failed"
 
 # Fix permissions at runtime (HF runs as user 1000)
 echo "[boot] Fixing permissions for $(whoami)..."
