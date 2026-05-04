@@ -38,8 +38,9 @@
 
   async function checkSetup() {
     try {
-      const instances = await fetchInstances();
-      const halo = instances.find(i => i.name === instanceName);
+      const raw = await fetchInstances();
+      const instances = Array.isArray(raw) ? raw : raw?.instances ?? [];
+      const halo = instances.find((i) => i.name === instanceName);
       
       if (halo) {
         if (halo.connectionStatus === "open") {
@@ -69,15 +70,39 @@
     try {
       console.log("[admin] Fetching connection data (QR/Pairing)...");
       const res = await connectInstance(instanceName, num);
-      
-      // Handle both top-level and nested qrcode object formats
-      const qrData = res.qrcode || res;
-      
-      if (qrData.base64) {
-        qrCode = qrData.base64.startsWith('data:') ? qrData.base64 : `data:image/png;base64,${qrData.base64}`;
+
+      if (res?.error) {
+        console.error("[admin] connect API error:", res.message);
+        return;
+      }
+
+      // Evolution may return the QR payload at top level, under `qrcode`, or under `data`
+      const qrData = res?.qrcode ?? res?.data?.qrcode ?? res;
+
+      let imgSrc = null;
+      if (qrData?.base64) {
+        imgSrc = qrData.base64.startsWith("data:")
+          ? qrData.base64
+          : `data:image/png;base64,${qrData.base64}`;
+      } else if (qrData?.code && typeof qrData.code === "string") {
+        // Baileys often exposes raw QR text before async base64 is ready on the server
+        try {
+          const QRCode = (await import("qrcode")).default;
+          imgSrc = await QRCode.toDataURL(qrData.code, {
+            margin: 2,
+            width: 280,
+            errorCorrectionLevel: "M",
+          });
+        } catch (e) {
+          console.error("[admin] client-side QR render failed:", e);
+        }
+      }
+
+      if (imgSrc) {
+        qrCode = imgSrc;
         console.log("[admin] QR Code received");
       }
-      if (qrData.pairingCode) {
+      if (qrData?.pairingCode) {
         pairingCode = qrData.pairingCode;
         console.log("[admin] Pairing Code received:", pairingCode);
       }
@@ -111,10 +136,9 @@
   }
 
   function startPolling() {
-    // Initial run
-    runPoll();
-    // Subsequent intervals
-    pollInterval = setInterval(runPoll, 5000);
+    void runPoll();
+    // Slightly faster while linking WhatsApp so QR appears soon after the server generates it
+    pollInterval = setInterval(runPoll, 3000);
   }
 
   onDestroy(() => {
