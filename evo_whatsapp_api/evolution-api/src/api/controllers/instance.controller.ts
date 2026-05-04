@@ -321,6 +321,36 @@ export class InstanceController {
     }
   }
 
+  /**
+   * Baileys sets QR base64/code in a qrcode.toDataURL callback, so returning qrCode
+   * immediately after connect often yields empty payloads. Wait until data exists,
+   * the session opens, or timeout (HF/browser clients then get a real image/string).
+   */
+  private async waitForQrPayload(instanceName: string, timeoutMs = 25000): Promise<{ qr: wa.QrCode; opened: boolean }> {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const instance = this.waMonitor.waInstances[instanceName];
+      if (!instance) {
+        await delay(300);
+        continue;
+      }
+      const state = instance.connectionStatus?.state;
+      if (state === 'open') {
+        return { qr: instance.qrCode, opened: true };
+      }
+      const qr = instance.qrCode;
+      if (qr?.base64 || qr?.code) {
+        return { qr, opened: false };
+      }
+      await delay(300);
+    }
+    const instance = this.waMonitor.waInstances[instanceName];
+    if (!instance) {
+      return { qr: { count: 0 }, opened: false };
+    }
+    return { qr: instance.qrCode, opened: instance.connectionStatus?.state === 'open' };
+  }
+
   public async connectToWhatsapp({ instanceName, number = null }: InstanceDto) {
     try {
       const instance = this.waMonitor.waInstances[instanceName];
@@ -335,14 +365,21 @@ export class InstanceController {
       }
 
       if (state == 'connecting') {
-        return instance.qrCode;
+        const { qr, opened } = await this.waitForQrPayload(instanceName);
+        if (opened) {
+          return await this.connectionState({ instanceName });
+        }
+        return qr;
       }
 
       if (state == 'close') {
         await instance.connectToWhatsapp(number);
-
-        await delay(2000);
-        return instance.qrCode;
+        await delay(500);
+        const { qr, opened } = await this.waitForQrPayload(instanceName);
+        if (opened) {
+          return await this.connectionState({ instanceName });
+        }
+        return qr;
       }
 
       return {
