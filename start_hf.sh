@@ -143,8 +143,86 @@ curl -s -X POST "http://localhost:8080/instance/create" \
        "integration": "WHATSAPP-BAILEYS"
      }' > /dev/null
 
+# Poll Evolution until the raw QR string exists, then print an ASCII QR to HF logs (stdout).
+echo "[boot] Polling /instance/connect/halo — ASCII QR will print below when Baileys exposes raw 'code'…"
+python3 - <<'PYBOOT'
+import json, os, subprocess, time, urllib.request
+
+API = "http://127.0.0.1:8080/instance/connect/halo"
+HDR = {"apikey": "hellowork.1234"}
+
+
+def fetch():
+    req = urllib.request.Request(API, headers=HDR)
+    with urllib.request.urlopen(req, timeout=45) as resp:
+        return json.load(resp)
+
+
+def render_ascii(code: str) -> None:
+    path = "/tmp/hf_qr_payload.txt"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(code)
+    env = os.environ.copy()
+    env["NODE_PATH"] = "/app/evolution/node_modules"
+    js = (
+        "const fs=require('fs');const qrt=require('qrcode-terminal');"
+        "const code=fs.readFileSync('/tmp/hf_qr_payload.txt','utf8');"
+        "qrt.generate(code,{small:true},function(o){"
+        "process.stdout.write('\\n========== [boot] WhatsApp QR (scan with phone) ==========\\n'+o+'\\n============================================================\\n');"
+        "});"
+    )
+    r = subprocess.run(["node", "-e", js], cwd="/app/evolution", env=env, capture_output=True, text=True)
+    if r.stdout:
+        print(r.stdout, end="")
+    if r.stderr:
+        print(r.stderr, end="")
+    if r.returncode != 0:
+        print(f"[boot][QR] qrcode-terminal exit {r.returncode}")
+
+
+time.sleep(5)
+printed = False
+for attempt in range(1, 46):
+    try:
+        j = fetch()
+    except Exception as e:
+        print(f"[boot][QR] attempt {attempt}: HTTP error: {e}")
+        time.sleep(2)
+        continue
+    if isinstance(j, dict) and j.get("error"):
+        print(f"[boot][QR] attempt {attempt}: API error: {j.get('message')}")
+        time.sleep(2)
+        continue
+    p = j.get("qrcode") if isinstance(j, dict) else None
+    if not isinstance(p, dict):
+        p = j if isinstance(j, dict) else {}
+    code = p.get("code")
+    b64 = p.get("base64")
+    if isinstance(code, str) and len(code) > 10:
+        print(f"[boot][QR] attempt {attempt}: raw QR string length={len(code)}")
+        render_ascii(code)
+        printed = True
+        break
+    if isinstance(b64, str) and len(b64) > 80:
+        print(
+            f"[boot][QR] attempt {attempt}: only base64 PNG present (len={len(b64)}), "
+            "waiting for raw 'code' for terminal render…"
+        )
+    else:
+        keys = list(j.keys()) if isinstance(j, dict) else []
+        cnt = p.get("count") if isinstance(p, dict) else None
+        print(f"[boot][QR] attempt {attempt}: waiting… keys={keys} count={cnt}")
+    time.sleep(2)
+
+if not printed:
+    print(
+        "[boot][QR] No raw 'code' in /instance/connect/halo after ~90s. "
+        "Check Evolution stdout above for Baileys terminal QR, or use the admin UI once base64 is returned."
+    )
+PYBOOT
+
 echo "[boot] ALL SERVICES DISCOVERED. Starting Axum Backend (Primary Gateway)..."
-echo "[boot] CHECK LOGS ABOVE FOR THE WHATSAPP QR CODE!"
+echo "[boot] If ASCII QR did not print, check Evolution lines above or proxy logs for [proxy][instance/connect]."
 cd /app/backend
 PORT=7860 \
 SIDECAR_URL=http://localhost:8001 \

@@ -53,7 +53,11 @@ async fn proxy_handler(
     method: Method,
     req: Request<Body>,
 ) -> Response {
-    let path_query = req.uri().path_and_query().map(|pq| pq.as_str()).unwrap_or("");
+    let path_query = req
+        .uri()
+        .path_and_query()
+        .map(|pq| pq.as_str().to_owned())
+        .unwrap_or_default();
     let target_url = format!("http://127.0.0.1:8080{}", path_query);
     
     tracing::debug!("[proxy] {} -> {}", method, target_url);
@@ -90,6 +94,50 @@ async fn proxy_handler(
                 }
             }
             let bytes = resp.bytes().await.unwrap_or_default();
+            if path_query.contains("/instance/connect") {
+                match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                    Ok(v) => {
+                        let nested = v.get("qrcode");
+                        let code_top = v
+                            .get("code")
+                            .and_then(|c| c.as_str())
+                            .map(|s| s.len())
+                            .unwrap_or(0);
+                        let code_nested = nested
+                            .and_then(|q| q.get("code"))
+                            .and_then(|c| c.as_str())
+                            .map(|s| s.len())
+                            .unwrap_or(0);
+                        let b64_top = v
+                            .get("base64")
+                            .and_then(|b| b.as_str())
+                            .map(|s| s.len())
+                            .unwrap_or(0);
+                        let b64_nested = nested
+                            .and_then(|q| q.get("base64"))
+                            .and_then(|b| b.as_str())
+                            .map(|s| s.len())
+                            .unwrap_or(0);
+                        let keys: Vec<String> = v
+                            .as_object()
+                            .map(|o| o.keys().cloned().collect())
+                            .unwrap_or_default();
+                        tracing::warn!(
+                            "[proxy][instance/connect] body_bytes={} code_len_top={} code_len_nested={} base64_len_top={} base64_len_nested={} keys={:?}",
+                            bytes.len(),
+                            code_top,
+                            code_nested,
+                            b64_top,
+                            b64_nested,
+                            keys
+                        );
+                    }
+                    Err(_) => tracing::warn!(
+                        "[proxy][instance/connect] body_bytes={} (non-JSON body)",
+                        bytes.len()
+                    ),
+                }
+            }
             builder.body(Body::from(bytes)).unwrap().into_response()
         }
         Err(e) => {
