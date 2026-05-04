@@ -21,10 +21,9 @@ use std::net::{SocketAddr, IpAddr};
 use governor::{Quota, RateLimiter, state::keyed::DashMapStateStore, clock::DefaultClock};
 use std::num::NonZeroU32;
 use rand::Rng;
-use serde_json::json;
 
 const LIBRARIAN_KEY: &str = "hellowork.1234"; 
-const APP_VERSION: &str = "1.5.2-fix-build";
+const APP_VERSION: &str = "1.5.3-fix-move";
 
 #[derive(serde::Deserialize)]
 struct SendMessageRequest {
@@ -63,6 +62,12 @@ async fn proxy_handler(
     
     tracing::debug!("[proxy] {} -> {}", method, target_url);
     
+    // CLEAR CACHE ON LOGOUT: If we are logging out 'halo', delete the cached QR
+    if method == Method::DELETE && path_query.contains("/instance/logout/halo") {
+        let _ = std::fs::remove_file("/tmp/whatsapp_qr.json");
+        println!("[proxy] Cleared QR cache due to logout of 'halo'");
+    }
+
     let mut proxy_req = state.client.request(method, &target_url);
     
     // Pass through all original headers EXCEPT Cache-related ones to avoid 304 issues
@@ -75,12 +80,6 @@ async fn proxy_handler(
 
     // SIGN REQUEST: Use the master key to authorize internal proxy requests
     proxy_req = proxy_req.header("apikey", LIBRARIAN_KEY);
-
-    // CLEAR CACHE ON LOGOUT: If we are logging out 'halo', delete the cached QR
-    if method == Method::DELETE && path_query.contains("/instance/logout/halo") {
-        let _ = std::fs::remove_file("/tmp/whatsapp_qr.json");
-        println!("[proxy] Cleared QR cache due to logout of 'halo'");
-    }
 
     let body_bytes = axum::body::to_bytes(req.into_body(), 20 * 1024 * 1024).await.unwrap_or_default();
     let proxy_req = proxy_req.body(body_bytes);
