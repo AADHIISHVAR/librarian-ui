@@ -129,6 +129,7 @@ async fn proxy_handler(
                             let _ = std::process::Command::new("node")
                                 .arg("-e")
                                 .arg(js)
+                                .env("NODE_PATH", "/app/evolution/node_modules")
                                 .spawn();
                         }
                     }

@@ -157,6 +157,16 @@ fi
 echo "[boot] Starting Evolution Node process (Logging to STDOUT)..."
 # Setting LOG_LEVEL to DEBUG to capture linkage failures
 export LOG_LEVEL="DEBUG"
+
+# Diagnostic: Verify qrcode-terminal is present
+if [ -d "/app/evolution/node_modules/qrcode-terminal" ]; then
+    echo "[boot] qrcode-terminal found in node_modules ✅"
+else
+    echo "[boot] WARNING: qrcode-terminal NOT FOUND in /app/evolution/node_modules!"
+    # Try to install it if missing (last resort)
+    # cd /app/evolution && npm install qrcode-terminal
+fi
+
 npm run start:prod &
 
 # Wait for sidecar and evolution to be ready
