@@ -8,7 +8,9 @@ on:
       - 'public/**'
       - 'index.html'
       - 'package.json'
+      - 'package-lock.json'
       - 'vite.config.js'
+      - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch:
 
 permissions:
