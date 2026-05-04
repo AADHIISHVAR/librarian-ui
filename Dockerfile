@@ -5,38 +5,47 @@ FROM node:20-bookworm-slim AS evolution-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git ffmpeg wget curl bash openssl python3 build-essential && \
     rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app/evolution
 COPY evo_whatsapp_api/evolution-api/package*.json ./
 
-# Switch to 'npm install' for better compatibility with lockfiles
-# --ignore-scripts prevents the 'prepare' (husky) script from running
-RUN npm install --no-audit --no-fund --ignore-scripts
+# Install dependencies including devDeps for build
+# Added @swc/core to support decorators during tsup build
+RUN npm install --no-audit --no-fund --ignore-scripts && \
+    npm install @swc/core --no-audit --no-fund --ignore-scripts
 
 COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
+
+# Verify files before build
+RUN ls -la src/main.ts
+
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
-# Optimization for HF: Only CJS, no minify, no sourcemap, more memory
-RUN NODE_OPTIONS="--max-old-space-size=3072" npx tsup src/main.ts --format cjs --clean --sourcemap false
+
+# Optimization for HF: Only CJS, no minify, no sourcemap
+# Using 2048 to stay within builder limits while giving enough headroom
+RUN NODE_OPTIONS="--max-old-space-size=2048" npx tsup src/main.ts --format cjs --clean --sourcemap false
+
+# Remove devDependencies to keep the final image small
 RUN npm prune --omit=dev && npm cache clean --force
 
 # ==========================================
-# Stage 2: Rust Backend Builder (Updated to 1.85 for Edition 2024)
+# Stage 2: Rust Backend Builder
 # ==========================================
 FROM rust:1.85-slim AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev build-essential && \
     rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 
-# Create dummy source to allow cargo to fetch/build dependencies
+# Pre-build dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo fetch
-# Build dependencies only to cache them
-# Using CARGO_BUILD_JOBS=1 to avoid OOM on Hugging Face Builders
 RUN CARGO_BUILD_JOBS=1 cargo build --release && rm -rf src
 
-# Copy real source and build
+# Build real application
 COPY backend/src ./src
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0 -C link-arg=-s"
 RUN CARGO_BUILD_JOBS=1 cargo build --release --locked
@@ -53,7 +62,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Node.js for Evolution API
+# 2. Node.js Runtime
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
@@ -73,19 +82,17 @@ COPY --from=evolution-builder /app/evolution/package.json /app/evolution/package
 COPY --from=evolution-builder /app/evolution/prisma /app/evolution/prisma
 COPY --from=evolution-builder /app/evolution/public /app/evolution/public
 
-# Note: Frontend is now hosted on GitHub Pages, so we omit COPY from frontend-builder
-
 # 5. Application Code & Data
 COPY sidecar/ /app/sidecar/
 COPY uniqueBooks.db /app/uniqueBooks.db
 COPY start_hf.sh ./
 
-# 6. Final Setup
-RUN mkdir -p /app/evolution/instances /app/evolution/prisma /app/sidecar /app/backend /app/dist && \
-    chmod -R 777 /app && \
+# 6. Final Setup & Permissions
+RUN mkdir -p /app/evolution/instances /app/evolution/prisma && \
+    chmod +x /app/backend/backend-bin && \
+    chmod +x /app/start_hf.sh && \
     cp /app/uniqueBooks.db /app/library_database.db && \
-    \
-    chmod +x /app/start_hf.sh
+    chmod -R 777 /app/evolution /app/sidecar /app/backend
 
 # Environment
 ENV DATABASE_PROVIDER=sqlite
