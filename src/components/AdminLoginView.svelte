@@ -6,7 +6,8 @@
     createInstance, 
     connectInstance, 
     logoutInstance,
-    fetchOverdueBooks
+    fetchOverdueBooks,
+    getCachedQR
   } from '../lib/api';
 
   let username = "";
@@ -69,6 +70,26 @@
 
     try {
       console.log("[admin] Fetching connection data (QR/Pairing)...");
+
+      // NEW: Try cached QR first for instant ready state
+      if (!num) {
+        const cached = await getCachedQR();
+        if (cached && (cached.code || cached.base64)) {
+          console.log("[admin] Using cached QR from backend");
+          if (cached.base64) {
+            qrCode = cached.base64.startsWith("data:") ? cached.base64 : `data:image/png;base64,${cached.base64}`;
+          } else if (cached.code) {
+             try {
+                const QRCode = (await import("qrcode")).default;
+                qrCode = await QRCode.toDataURL(cached.code, { margin: 2, width: 280, errorCorrectionLevel: "M" });
+             } catch (e) {
+                console.error("[admin] client-side QR render failed (cached):", e);
+             }
+          }
+          if (qrCode) return; // Exit early if we got a good cached QR
+        }
+      }
+
       const res = await connectInstance(instanceName, num);
 
       if (res?.error) {

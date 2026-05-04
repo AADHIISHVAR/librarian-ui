@@ -295,6 +295,12 @@ async fn main() {
         .route("/api/advanced-search", post(routes::search::advanced_search))
         .route("/api/overdue", get(routes::overdue::get_overdue_books))
         .route("/api/whatsapp/send", post(send_message))
+        .route("/api/whatsapp/qr", get(|| async {
+            match std::fs::read_to_string("/tmp/whatsapp_qr.json") {
+                Ok(content) => (StatusCode::OK, content).into_response(),
+                Err(_) => (StatusCode::NOT_FOUND, "QR not ready").into_response(),
+            }
+        }))
         .route("/api/health", get(|| async { "ok" }))
         .route("/api/version", get(|| async { APP_VERSION }))
         .route("/", get(|| async { format!("Librarian AI Nuclear Gateway v{}", APP_VERSION) }))

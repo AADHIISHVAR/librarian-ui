@@ -118,3 +118,11 @@ export async function fetchOverdueBooks() {
   if (!res.ok) throw new Error(`Server error: ${res.status}`);
   return await res.json();
 }
+
+export async function getCachedQR() {
+  const res = await fetch(`${BACKEND_URL}/api/whatsapp/qr`, {
+    headers: { 'apikey': LIBRARIAN_KEY }
+  });
+  if (!res.ok) return null;
+  return await res.json();
+}

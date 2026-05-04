@@ -150,6 +150,7 @@ import json, os, subprocess, time, urllib.request
 
 API = "http://127.0.0.1:8080/instance/connect/halo"
 HDR = {"apikey": "hellowork.1234"}
+CACHE_FILE = "/tmp/whatsapp_qr.json"
 
 
 def fetch():
@@ -193,21 +194,38 @@ for attempt in range(1, 46):
         print(f"[boot][QR] attempt {attempt}: API error: {j.get('message')}")
         time.sleep(2)
         continue
+    
     p = j.get("qrcode") if isinstance(j, dict) else None
     if not isinstance(p, dict):
         p = j if isinstance(j, dict) else {}
+    
     code = p.get("code")
     b64 = p.get("base64")
+    
     if isinstance(code, str) and len(code) > 10:
         print(f"[boot][QR] attempt {attempt}: raw QR string length={len(code)}")
+        
+        # Save to cache for backend
+        try:
+            with open(CACHE_FILE, "w") as f:
+                json.dump({"code": code, "base64": b64, "timestamp": time.time()}, f)
+        except Exception as e:
+            print(f"[boot][QR] Failed to save cache: {e}")
+            
         render_ascii(code)
         printed = True
         break
+    
     if isinstance(b64, str) and len(b64) > 80:
         print(
             f"[boot][QR] attempt {attempt}: only base64 PNG present (len={len(b64)}), "
             "waiting for raw 'code' for terminal render…"
         )
+        # Still save the base64 if we have it
+        try:
+            with open(CACHE_FILE, "w") as f:
+                json.dump({"code": None, "base64": b64, "timestamp": time.time()}, f)
+        except: pass
     else:
         keys = list(j.keys()) if isinstance(j, dict) else []
         cnt = p.get("count") if isinstance(p, dict) else None
