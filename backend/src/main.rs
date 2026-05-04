@@ -21,9 +21,10 @@ use std::net::{SocketAddr, IpAddr};
 use governor::{Quota, RateLimiter, state::keyed::DashMapStateStore, clock::DefaultClock};
 use std::num::NonZeroU32;
 use rand::Rng;
+use serde_json::json;
 
 const LIBRARIAN_KEY: &str = "hellowork.1234"; 
-const APP_VERSION: &str = "1.5.1-qr-wait";
+const APP_VERSION: &str = "1.5.2-fix-build";
 
 #[derive(serde::Deserialize)]
 struct SendMessageRequest {
@@ -294,18 +295,20 @@ async fn main() {
         .route("/api/whatsapp/qr", get(|| async {
             match std::fs::read_to_string("/tmp/whatsapp_qr.json") {
                 Ok(content) => (StatusCode::OK, content).into_response(),
-                Err(_) => (StatusCode::NOT_FOUND, "QR not ready").into_response(),
+                Err(_) => (StatusCode::NOT_FOUND, "QR not ready".to_string()).into_response(),
             }
         }))
         .route("/api/admin/db-check", get(|| async {
             let db_path = "/app/evolution/prisma/evolution.db";
-            match std::process::Command::new("sqlite3")
+            let output = std::process::Command::new("sqlite3")
                 .arg(db_path)
                 .arg("SELECT name, connectionStatus, number FROM Instance;")
-                .output() {
-                Ok(output) => {
-                    let res = String::from_utf8_lossy(&output.stdout).to_string();
-                    let err = String::from_utf8_lossy(&output.stderr).to_string();
+                .output();
+
+            match output {
+                Ok(out) => {
+                    let res = String::from_utf8_lossy(&out.stdout).to_string();
+                    let err = String::from_utf8_lossy(&out.stderr).to_string();
                     (StatusCode::OK, format!("Out: {}\nErr: {}", res, err)).into_response()
                 },
                 Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed: {}", e)).into_response(),
