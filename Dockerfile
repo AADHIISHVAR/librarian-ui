@@ -15,7 +15,8 @@ RUN npm install --no-audit --no-fund --ignore-scripts
 COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
-RUN NODE_OPTIONS="--max-old-space-size=2048" npx tsup src/main.ts --format cjs,esm --minify --clean --sourcemap false
+# Optimization for HF: Only CJS, no minify, no sourcemap, more memory
+RUN NODE_OPTIONS="--max-old-space-size=3072" npx tsup src/main.ts --format cjs --clean --sourcemap false
 RUN npm prune --omit=dev && npm cache clean --force
 
 # ==========================================
