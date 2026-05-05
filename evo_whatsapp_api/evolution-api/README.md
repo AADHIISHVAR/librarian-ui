@@ -1,3 +1,12 @@
+---
+title: Evolution API
+emoji: 🚀
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 <h1 align="center">Evolution Api</h1>
 
 <div align="center">

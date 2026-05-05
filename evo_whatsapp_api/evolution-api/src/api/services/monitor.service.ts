@@ -297,7 +297,7 @@ export class WAMonitoringService {
       this.logger.info(
         `Auto-connecting instance "${instanceData.instanceName}" (status: ${instanceData.connectionStatus})`,
       );
-      await instance.connectToWhatsapp();
+       await instance.connectToWhatsapp(instanceData);
     } else {
       this.logger.info(
         `Skipping auto-connect for instance "${instanceData.instanceName}" (status: ${instanceData.connectionStatus || 'close'})`,

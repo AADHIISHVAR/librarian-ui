@@ -1543,15 +1543,16 @@ export class ChatwootService {
 
         const chatwootRead = this.configService.get<Chatwoot>('CHATWOOT').MESSAGE_READ;
         if (chatwootRead) {
-          const lastMessage = await this.prismaRepository.message.findFirst({
-            where: {
-              key: {
-                path: 'fromMe',
-                equals: false,
+            const lastMessage = await this.prismaRepository.message.findFirst({
+              where: {
+                key: {
+                    path: 'fromMe',
+                  equals: false,
+                },
+                instanceId: instance.instanceId,
               },
-              instanceId: instance.instanceId,
-            },
-          });
+            });
+
           if (lastMessage && !lastMessage.chatwootIsRead) {
             const key = lastMessage.key as WAMessageKey;
 
