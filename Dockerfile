@@ -22,14 +22,8 @@ RUN npm config set fetch-retries 10 && \
 COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 
-# Verify files before build
-RUN ls -la src/main.ts
-
-RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
-
-# Optimization for HF: Only CJS, no minify, no sourcemap
-# Using 3072 to give enough headroom for the build
-RUN NODE_OPTIONS="--max-old-space-size=3072" npx tsup src/main.ts --format cjs --clean --sourcemap false
+# Build bundling steps are intentionally skipped on HF to avoid tsup OOM/edge failures.
+# Runtime starts Evolution from source with tsx in start_hf.sh.
 
 # Keep build output stable in HF builders; pruning can fail on some npm trees.
 # Size is slightly larger, but avoids non-critical build failures.
@@ -97,11 +91,12 @@ RUN for i in 1 2 3 4; do \
 
 # 4. Copy Artifacts
 COPY --from=backend-builder /app/backend/target/release/library-backend /app/backend/backend-bin
-COPY --from=evolution-builder /app/evolution/dist /app/evolution/dist
 COPY --from=evolution-builder /app/evolution/node_modules /app/evolution/node_modules
 COPY --from=evolution-builder /app/evolution/package.json /app/evolution/package.json
 COPY --from=evolution-builder /app/evolution/prisma /app/evolution/prisma
 COPY --from=evolution-builder /app/evolution/public /app/evolution/public
+COPY --from=evolution-builder /app/evolution/src /app/evolution/src
+COPY --from=evolution-builder /app/evolution/tsconfig*.json /app/evolution/
 
 # 5. Application Code & Data
 COPY sidecar/ /app/sidecar/
