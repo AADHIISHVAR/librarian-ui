@@ -23,7 +23,13 @@ The project is now deployed using a split architecture for maximum reliability a
  
 ### 1. Hardened Connection
 *   **QR Lifecycle Fixed:** Resolved the connection flow (Connect -> Generate -> Return) to ensure QR codes are correctly returned to the frontend.
-*   **Build Stability:** Fixed TypeScript errors (`TS2322`, `TS2554`) across `whatsapp.baileys.service.ts`, `monitor.service.ts`, and others to ensure zero-fail builds.
+*   **Crash Prevention:** 
+    *   Implemented optional chaining for phone numbers in `connectToWhatsapp` to prevent `TypeError` during QR-based creation.
+    *   Wrapped `logoutInstance` in try-catch to prevent session deletion failures from crashing the server.
+*   **Network Tunneling (HF Space):** 
+    *   Forced IPv4 priority via `NODE_OPTIONS`.
+    *   Overrode `/etc/resolv.conf` with Google DNS (`8.8.8.8`) to ensure critical WhatsApp WebSocket endpoints (`e.whatsapp.net`) resolve correctly.
+    *   Removed hardcoded IP overrides in `/etc/hosts` to prevent `ECONNREFUSED` errors.
 *   **Zero-Dependency:** Using local SQLite session storage. `CACHE_REDIS_ENABLED` is set to `false`.
 *   **Persistence:** Explicit absolute paths (`/app/evolution/prisma/evolution.db`) ensure session stability.
 *   **Forced Auth:** Uses fixed `AUTHENTICATION_API_KEY` to synchronize with frontend requests.
@@ -53,8 +59,10 @@ The "Thin Dockerfile" strategy on Hugging Face ensures **zero OOM crashes**. All
  
 ### Automated Boot Diagnostics (`start_hf.sh`)
 1.  **DB Auto-Initialization:** Automatically creates missing SQLite databases (including `uniqueBooks.db`) to prevent boot failures.
-2.  **DB Integrity:** Uses `sqlite3` to verify and repair session databases before Prisma starts.
-3.  **Environment Sync:** Exports all critical API keys and paths at runtime to prevent configuration drift.
+2.  **Instance Auto-Provisioning:** Creates the `halo` instance and triggers an immediate connection with a 5s delay for stability.
+3.  **Network Audit:** Verifies DNS resolution for `web.whatsapp.com`, `g.whatsapp.net`, and `e.whatsapp.net` at boot.
+4.  **DB Integrity:** Uses `sqlite3` to verify and repair session databases before Prisma starts.
+5.  **Environment Sync:** Exports all critical API keys and paths at runtime to prevent configuration drift.
  
 ---
 **Maintained by:** Librarian Dev Team

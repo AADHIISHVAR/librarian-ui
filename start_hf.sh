@@ -33,7 +33,7 @@ export AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES="true"
 # Adding NODE_IP_FAMILY=4 to force IPv4
 export NODE_OPTIONS="--dns-result-order=ipv4first --max-old-space-size=2048"
 export NODE_IP_FAMILY=4
-export WA_WEB_VERSION="2.3000.1018224522"
+export WA_WEB_VERSION="2.3000.1015901355"
 
 # Baileys Tweak: Try to force specific connection behavior via env
 export WA_MOBILE="false"
