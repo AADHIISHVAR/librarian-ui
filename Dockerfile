@@ -72,8 +72,17 @@ WORKDIR /app
 
 # 3. AI Sidecar
 COPY sidecar/requirements.txt ./sidecar/
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu 
-RUN pip install --no-cache-dir -r ./sidecar/requirements.txt
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+ENV PIP_DEFAULT_TIMEOUT=180
+RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN for i in 1 2 3; do \
+      pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && break; \
+      echo "[build][pip] torch install failed (attempt $i), retrying..." && sleep 15; \
+    done
+RUN for i in 1 2 3; do \
+      pip install --no-cache-dir -r ./sidecar/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu && break; \
+      echo "[build][pip] requirements install failed (attempt $i), retrying..." && sleep 15; \
+    done
 
 # 4. Copy Artifacts
 COPY --from=backend-builder /app/backend/target/release/library-backend /app/backend/backend-bin
