@@ -107,6 +107,8 @@ COPY --from=evolution-builder /app/evolution/node_modules /app/evolution/node_mo
 COPY --from=evolution-builder /app/evolution/package.json /app/evolution/package.json
 COPY --from=evolution-builder /app/evolution/prisma /app/evolution/prisma
 COPY --from=evolution-builder /app/evolution/public /app/evolution/public
+COPY --from=evolution-builder /app/evolution/src /app/evolution/src
+COPY --from=evolution-builder /app/evolution/tsconfig.json /app/evolution/tsconfig.json
 
 # 5. Application Code & Data
 COPY sidecar/ /app/sidecar/
