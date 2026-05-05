@@ -89,7 +89,11 @@ COPY sidecar/requirements.txt ./sidecar/
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PIP_DEFAULT_TIMEOUT=180
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
-RUN pip install --no-cache-dir --retries 10 --timeout 180 --prefer-binary -r ./sidecar/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
+RUN for i in 1 2 3 4; do \
+      pip install --no-cache-dir --retries 10 --timeout 180 --prefer-binary -r ./sidecar/requirements.txt && break; \
+      echo "[build][pip] requirements install failed on pypi (attempt $i), retrying..." && sleep 20; \
+    done || \
+    pip install --no-cache-dir --retries 10 --timeout 180 --prefer-binary -r ./sidecar/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 # 4. Copy Artifacts
 COPY --from=backend-builder /app/backend/target/release/library-backend /app/backend/backend-bin
