@@ -43,10 +43,8 @@ ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 
-# Pre-build dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+# Pre-fetch dependencies to warm cargo cache
 RUN cargo fetch --locked || (sleep 5 && cargo fetch --locked)
-RUN CARGO_BUILD_JOBS=1 cargo build --release --locked || (sleep 5 && CARGO_BUILD_JOBS=1 cargo build --release --locked) && rm -rf src
 
 # Build real application
 COPY backend/src ./src

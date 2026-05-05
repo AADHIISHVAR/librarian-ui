@@ -208,9 +208,14 @@ curl -s -X POST "http://localhost:8080/instance/create" \
        "integration": "WHATSAPP-BAILEYS"
      }' > /dev/null
 
-# Poll Evolution until the raw QR string exists, then print an ASCII QR to HF logs (stdout).
-echo "[boot] Polling /instance/connect/halo — ASCII QR will print below when Baileys exposes raw 'code'…"
-python3 - <<'PYBOOT'
+# Trigger connect once immediately so QR generation starts without admin login.
+echo "[boot] Triggering immediate connect for 'halo'..."
+curl -s -X GET "http://localhost:8080/instance/connect/halo" \
+     -H "apikey: hellowork.1234" > /dev/null || true
+
+# Keep QR warm in background from process start.
+echo "[boot] Starting background QR keeper for 'halo'..."
+python3 - <<'PYBOOT' &
 import json, os, subprocess, time, urllib.request
 
 API = "http://127.0.0.1:8080/instance/connect/halo"
@@ -246,62 +251,50 @@ def render_ascii(code: str) -> None:
         print(f"[boot][QR] qrcode-terminal exit {r.returncode}")
 
 
-time.sleep(5)
-printed = False
-for attempt in range(1, 46):
+time.sleep(3)
+last_code = None
+while True:
     try:
         j = fetch()
     except Exception as e:
-        print(f"[boot][QR] attempt {attempt}: HTTP error: {e}")
-        time.sleep(2)
+        print(f"[boot][QR] keeper: HTTP error: {e}")
+        time.sleep(3)
         continue
+
     if isinstance(j, dict) and j.get("error"):
-        print(f"[boot][QR] attempt {attempt}: API error: {j.get('message')}")
-        time.sleep(2)
+        print(f"[boot][QR] keeper: API error: {j.get('message')}")
+        time.sleep(3)
         continue
-    
+
     p = j.get("qrcode") if isinstance(j, dict) else None
     if not isinstance(p, dict):
         p = j if isinstance(j, dict) else {}
-    
+
     code = p.get("code")
     b64 = p.get("base64")
-    
+
     if isinstance(code, str) and len(code) > 10:
-        print(f"[boot][QR] attempt {attempt}: raw QR string length={len(code)}")
-        
-        # Save to cache for backend
+        if code != last_code:
+            print(f"[boot][QR] keeper: new raw QR string length={len(code)}")
+            last_code = code
+            render_ascii(code)
         try:
             with open(CACHE_FILE, "w") as f:
                 json.dump({"code": code, "base64": b64, "timestamp": time.time()}, f)
         except Exception as e:
-            print(f"[boot][QR] Failed to save cache: {e}")
-            
-        render_ascii(code)
-        printed = True
-        break
-    
-    if isinstance(b64, str) and len(b64) > 80:
-        print(
-            f"[boot][QR] attempt {attempt}: only base64 PNG present (len={len(b64)}), "
-            "waiting for raw 'code' for terminal render…"
-        )
-        # Still save the base64 if we have it
+            print(f"[boot][QR] keeper: failed to save cache: {e}")
+    elif isinstance(b64, str) and len(b64) > 80:
         try:
             with open(CACHE_FILE, "w") as f:
                 json.dump({"code": None, "base64": b64, "timestamp": time.time()}, f)
-        except: pass
+        except Exception as e:
+            print(f"[boot][QR] keeper: failed to save base64 cache: {e}")
+        print(f"[boot][QR] keeper: base64 QR present (len={len(b64)}), waiting for raw code...")
     else:
         keys = list(j.keys()) if isinstance(j, dict) else []
-        cnt = p.get("count") if isinstance(p, dict) else None
-        print(f"[boot][QR] attempt {attempt}: waiting… keys={keys} count={cnt}")
-    time.sleep(2)
+        print(f"[boot][QR] keeper: waiting... keys={keys}")
 
-if not printed:
-    print(
-        "[boot][QR] No raw 'code' in /instance/connect/halo after ~90s. "
-        "Check Evolution stdout above for Baileys terminal QR, or use the admin UI once base64 is returned."
-    )
+    time.sleep(5)
 PYBOOT
 
 echo "[boot] ALL SERVICES DISCOVERED. Starting Axum Backend (Primary Gateway)..."
