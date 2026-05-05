@@ -31,7 +31,7 @@ ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 # ==========================================
 # Stage 2: Rust Backend Builder
 # ==========================================
-FROM rust:1.85-slim AS backend-builder
+FROM rust:1.86-slim AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev build-essential ca-certificates git curl && \
     update-ca-certificates && \
@@ -46,18 +46,22 @@ WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 
 # Pre-fetch dependencies to warm cargo cache
-RUN for i in 1 2 3 4 5 6; do \
-      cargo fetch && break; \
+RUN ok=0; \
+    for i in 1 2 3 4 5 6; do \
+      if cargo fetch; then ok=1; break; fi; \
       echo "[build][cargo] fetch failed (attempt $i), retrying..." && sleep 20; \
-    done
+    done; \
+    test "$ok" -eq 1
 
 # Build real application
 COPY backend/src ./src
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0 -C link-arg=-s"
-RUN for i in 1 2 3; do \
-      CARGO_BUILD_JOBS=1 cargo build --release && break; \
+RUN ok=0; \
+    for i in 1 2 3; do \
+      if CARGO_BUILD_JOBS=1 cargo build --release; then ok=1; break; fi; \
       echo "[build][cargo] build failed (attempt $i), retrying..." && sleep 20; \
-    done
+    done; \
+    test "$ok" -eq 1
 
 # ==========================================
 # Stage 3: Final Runtime Image
