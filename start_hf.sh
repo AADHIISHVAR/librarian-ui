@@ -187,14 +187,24 @@ echo "[boot] Evolution API ready ✅"
 
 # FORCE CREATE 'halo' instance now to trigger QR generation in terminal
 echo "[boot] Auto-provisioning 'halo' instance for instant QR..."
-curl -v -X POST "http://localhost:8080/instance/create" \
+CREATE_RESP=$(curl -s -w "%{http_code}" -o /tmp/create_resp.log -X POST "http://localhost:8080/instance/create" \
      -H "Content-Type: application/json" \
      -H "apikey: hellowork.1234" \
      -d '{
        "instanceName": "halo",
        "qrcode": true,
        "integration": "WHATSAPP-BAILEYS"
-     }'
+     }')
+
+if [ "$CREATE_RESP" != "201" ] && [ "$CREATE_RESP" != "200" ]; then
+  echo "[error] Failed to create 'halo' instance. HTTP Status: $CREATE_RESP"
+  cat /tmp/create_resp.log
+  # We don't exit 1 here to allow other services to start, but this is a critical failure
+fi
+
+# Give the API time to actually initialize the instance in memory/DB
+echo "[boot] Waiting 5s for instance initialization..."
+sleep 5
 
 # Trigger connect once immediately so QR generation starts without admin login.
 echo "[boot] Triggering immediate connect for 'halo'..."
