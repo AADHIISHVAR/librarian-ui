@@ -23,8 +23,8 @@ RUN ls -la src/main.ts
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 
 # Optimization for HF: Only CJS, no minify, no sourcemap
-# Using 2048 to stay within builder limits while giving enough headroom
-RUN NODE_OPTIONS="--max-old-space-size=2048" npx tsup src/main.ts --format cjs --clean --sourcemap false
+# Using 3072 to give enough headroom for the build
+RUN NODE_OPTIONS="--max-old-space-size=3072" npx tsup src/main.ts --format cjs --clean --sourcemap false
 
 # Remove devDependencies to keep the final image small
 RUN npm prune --omit=dev && npm cache clean --force
