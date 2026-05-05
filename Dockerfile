@@ -43,25 +43,37 @@ RUN npm prune --omit=dev && npm cache clean --force
 # ==========================================
 # Stage 2: Rust Backend Builder
 # ==========================================
-FROM rust:1.85-slim AS backend-builder
+FROM rust:1.86-slim AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev build-essential ca-certificates git curl && \
     update-ca-certificates && \
     rm -rf /var/lib/apt/lists/*
+ENV CARGO_NET_RETRY=10
+ENV CARGO_HTTP_TIMEOUT=600
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+ENV CARGO_INCREMENTAL=0
 
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 
-# Create dummy source to allow cargo to fetch/build dependencies
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo fetch
-# Using CARGO_BUILD_JOBS=1 to avoid OOM on Hugging Face Builders
-RUN CARGO_BUILD_JOBS=1 cargo build --release && rm -rf src
+# Robust dependency fetch with explicit failure if retries are exhausted
+RUN ok=0; \
+    for i in 1 2 3 4 5 6; do \
+      if cargo fetch; then ok=1; break; fi; \
+      echo "[build][cargo] fetch failed (attempt $i), retrying..." && sleep 20; \
+    done; \
+    test "$ok" -eq 1
 
 # Copy real source and build
 COPY backend/src ./src
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0 -C link-arg=-s"
-RUN CARGO_BUILD_JOBS=1 cargo build --release --locked
+RUN ok=0; \
+    for i in 1 2 3; do \
+      if CARGO_BUILD_JOBS=1 cargo build --release; then ok=1; break; fi; \
+      echo "[build][cargo] build failed (attempt $i), retrying..." && sleep 20; \
+    done; \
+    test "$ok" -eq 1
 
 # ==========================================
 # Stage 3: Final Runtime Image
