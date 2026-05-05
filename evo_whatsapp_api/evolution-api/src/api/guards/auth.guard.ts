@@ -1,5 +1,5 @@
-import { NextFunction, Request, Response } from 'express';
 import { Logger } from '@config/logger.config';
+import { NextFunction, Request, Response } from 'express';
 
 const logger = new Logger('GUARD');
 

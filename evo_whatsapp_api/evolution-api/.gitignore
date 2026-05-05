@@ -45,4 +45,6 @@ lerna-debug.log*
 *.DS_Store
 .tool-versions
 
-/prisma/migrations/*
+# Binary files
+prisma/evolution.db
+*.wasm

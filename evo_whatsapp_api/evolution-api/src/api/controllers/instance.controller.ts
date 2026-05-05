@@ -48,7 +48,7 @@ export class InstanceController {
           await delay(2000);
         }
       } catch (e) {
-        this.logger.error("Error during pre-deletion check: " + e.message);
+        this.logger.error('Error during pre-deletion check: ' + e.message);
       }
 
       const instance = channelController.init(instanceData, {
@@ -373,7 +373,7 @@ export class InstanceController {
       }
 
       if (state == 'close') {
-        await instance.connectToWhatsapp(number);
+        await instance.connectToWhatsapp({ instanceName: instance.instanceName, number: number });
         await delay(500);
         const { qr, opened } = await this.waitForQrPayload(instanceName);
         if (opened) {
@@ -457,7 +457,7 @@ export class InstanceController {
     // SECURITY REMOVED PER USER REQUEST
     // const env = this.configService.get<Auth>('AUTHENTICATION').API_KEY;
     // ... logic removed ...
-    
+
     if (instanceId || number) {
       return this.waMonitor.instanceInfoById(instanceId, number);
     }

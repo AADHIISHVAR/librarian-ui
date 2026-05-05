@@ -720,7 +720,7 @@ export class BaileysStartupService extends ChannelStartupService {
     return this.client;
   }
 
-  public async connectToWhatsapp(number?: string): Promise<WASocket> {
+  public async connectToWhatsapp(data: string | InstanceDto): Promise<WASocket> {
     try {
       this.loadChatwoot();
       this.loadSettings();
@@ -732,12 +732,34 @@ export class BaileysStartupService extends ChannelStartupService {
         onMessageReceive: this.messageHandle['messages.upsert'].bind(this),
       });
 
+      const number = typeof data === 'string' ? data : data.number;
       return await this.createClient(number);
     } catch (error) {
       this.logger.error(error);
       throw new InternalServerErrorException(error?.toString());
     }
   }
+
+  // DEPRECATED: Use the overloaded connectToWhatsapp instead
+  // public async connectToWhatsapp(number?: string): Promise<WASocket> {
+  //   try {
+  //     this.loadChatwoot();
+  //     this.loadSettings();
+  //     this.loadWebhook();
+  //     this.loadProxy();
+  // 
+  //     // Remontar o messageProcessor para garantir que está funcionando após reconexão
+  //     this.messageProcessor.mount({
+  //       onMessageReceive: this.messageHandle['messages.upsert'].bind(this),
+  //     });
+  // 
+  //     return await this.createClient(number);
+  //   } catch (error) {
+  //     this.logger.error(error);
+  //     throw new InternalServerErrorException(error?.toString());
+  //   }
+  // }
+
 
   public async reloadConnection(): Promise<WASocket> {
     try {
