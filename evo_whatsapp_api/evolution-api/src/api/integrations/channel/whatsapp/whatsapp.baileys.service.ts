@@ -720,19 +720,19 @@ export class BaileysStartupService extends ChannelStartupService {
     return this.client;
   }
 
-  public async connectToWhatsapp(data: string | InstanceDto): Promise<WASocket> {
+  public async connectToWhatsapp(data: string | InstanceDto | undefined | null): Promise<WASocket> {
     try {
       this.loadChatwoot();
       this.loadSettings();
       this.loadWebhook();
       this.loadProxy();
-
+ 
       // Remontar o messageProcessor para garantir que está funcionando após reconexão
       this.messageProcessor.mount({
         onMessageReceive: this.messageHandle['messages.upsert'].bind(this),
       });
-
-      const number = typeof data === 'string' ? data : data.number;
+ 
+      const number = typeof data === 'string' ? data : data?.number;
       return await this.createClient(number);
     } catch (error) {
       this.logger.error(error);
