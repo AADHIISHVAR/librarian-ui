@@ -36,19 +36,22 @@ FROM rust:1.85-slim AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev build-essential && \
     rm -rf /var/lib/apt/lists/*
+ENV CARGO_NET_RETRY=10
+ENV CARGO_HTTP_TIMEOUT=600
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 
 # Pre-build dependencies
 RUN mkdir src && echo "fn main() {}" > src/main.rs
-RUN cargo fetch
-RUN CARGO_BUILD_JOBS=1 cargo build --release && rm -rf src
+RUN cargo fetch --locked || (sleep 5 && cargo fetch --locked)
+RUN CARGO_BUILD_JOBS=1 cargo build --release --locked || (sleep 5 && CARGO_BUILD_JOBS=1 cargo build --release --locked) && rm -rf src
 
 # Build real application
 COPY backend/src ./src
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0 -C link-arg=-s"
-RUN CARGO_BUILD_JOBS=1 cargo build --release --locked
+RUN CARGO_BUILD_JOBS=1 cargo build --release --locked || (sleep 5 && CARGO_BUILD_JOBS=1 cargo build --release --locked)
 
 # ==========================================
 # Stage 3: Final Runtime Image

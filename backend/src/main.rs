@@ -122,15 +122,16 @@ async fn proxy_handler(
                         let _ = std::fs::write("/tmp/whatsapp_qr.json", cache_obj.to_string());
 
                         if let Some(c) = code {
+                            let qr_js_str = serde_json::to_string(c).unwrap_or_else(|_| "\"\"".to_string());
                             let js = format!(
-                                "const qrt=require('qrcode-terminal');qrt.generate('{}',{{small:true}},(o)=>console.log('\\n[proxy] NEW WHATSAPP QR SCAN NOW:\\n'+o));",
-                                c
+                                "const qrt=require('qrcode-terminal');const code={};qrt.generate(code,{{small:true}},(o)=>{{console.log('\\n[proxy] NEW WHATSAPP QR SCAN NOW:\\n'+o+'\\n[proxy] END QR\\n');}});",
+                                qr_js_str
                             );
                             let _ = std::process::Command::new("node")
                                 .arg("-e")
                                 .arg(js)
                                 .env("NODE_PATH", "/app/evolution/node_modules")
-                                .spawn();
+                                .status();
                         }
                     }
                 }
