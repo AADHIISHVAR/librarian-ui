@@ -187,19 +187,19 @@ echo "[boot] Evolution API ready ✅"
 
 # FORCE CREATE 'halo' instance now to trigger QR generation in terminal
 echo "[boot] Auto-provisioning 'halo' instance for instant QR..."
-curl -s -X POST "http://localhost:8080/instance/create" \
+curl -v -X POST "http://localhost:8080/instance/create" \
      -H "Content-Type: application/json" \
      -H "apikey: hellowork.1234" \
      -d '{
        "instanceName": "halo",
        "qrcode": true,
        "integration": "WHATSAPP-BAILEYS"
-     }' > /dev/null
+     }'
 
 # Trigger connect once immediately so QR generation starts without admin login.
 echo "[boot] Triggering immediate connect for 'halo'..."
-curl -s -X GET "http://localhost:8080/instance/connect/halo" \
-     -H "apikey: hellowork.1234" > /dev/null || true
+curl -v -X GET "http://localhost:8080/instance/connect/halo" \
+     -H "apikey: hellowork.1234" || true
 
 # Keep QR warm in background from process start.
 echo "[boot] Starting background QR keeper for 'halo'..."

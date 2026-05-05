@@ -403,12 +403,12 @@ export class BaileysStartupService extends ChannelStartupService {
         }
       });
 
-      qrcodeTerminal.generate(qr, { small: true }, (qrcode) =>
-        this.logger.log(
-          `\n{ instance: ${this.instance.name} pairingCode: ${this.instance.qrcode.pairingCode}, qrcodeCount: ${this.instance.qrcode.count} }\n` +
-            qrcode,
-        ),
-      );
+       qrcodeTerminal.generate(qr, { small: true }, (qrcode) =>
+         console.log(
+           `\n{ instance: ${this.instance.name} pairingCode: ${this.instance.qrcode.pairingCode}, qrcodeCount: ${this.instance.qrcode.count} }\n` +
+             qrcode,
+         ),
+       );
 
       await this.prismaRepository.instance.update({
         where: { id: this.instanceId },
