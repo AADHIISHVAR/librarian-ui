@@ -116,11 +116,18 @@ mkdir -p /app/evolution/instances
 chmod -R 777 /app/evolution/instances
 DB_FILE="/app/evolution/prisma/evolution.db"
 
+# Seed library databases with mock data for testing
+echo "[boot] Seeding library databases with mock data..."
+python3 /app/seed_db.py || echo "[warn] Seeding failed, continuing..."
+# Also seed the primary evolution DB if needed, but we focus on the library sidecar
+cp /app/library_database.db /app/uniqueBooks.db || true
+
 # Create dummy DB if it doesn't exist so sqlite3 doesn't fail
 if [ ! -f "$DB_FILE" ]; then
     echo "[boot] Creating initial empty database..."
     sqlite3 "$DB_FILE" "VACUUM;"
 fi
+
 
 # NUCLEAR CLEANUP: Completely wipe 'halo' state to ensure a fresh session
 echo "[boot] Wiping any existing 'halo' session files and database entries..."
