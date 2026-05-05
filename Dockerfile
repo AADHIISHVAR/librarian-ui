@@ -39,17 +39,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ENV CARGO_NET_RETRY=10
 ENV CARGO_HTTP_TIMEOUT=600
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+ENV CARGO_INCREMENTAL=0
 
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 
 # Pre-fetch dependencies to warm cargo cache
-RUN cargo fetch --locked || (sleep 5 && cargo fetch --locked)
+RUN cargo fetch || (sleep 5 && cargo fetch)
 
 # Build real application
 COPY backend/src ./src
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0 -C link-arg=-s"
-RUN CARGO_BUILD_JOBS=1 cargo build --release --locked || (sleep 5 && CARGO_BUILD_JOBS=1 cargo build --release --locked)
+RUN CARGO_BUILD_JOBS=1 cargo build --release || (sleep 5 && CARGO_BUILD_JOBS=1 cargo build --release)
 
 # ==========================================
 # Stage 3: Final Runtime Image
@@ -75,14 +76,7 @@ COPY sidecar/requirements.txt ./sidecar/
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 ENV PIP_DEFAULT_TIMEOUT=180
 RUN python -m pip install --no-cache-dir --upgrade pip setuptools wheel
-RUN for i in 1 2 3; do \
-      pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu && break; \
-      echo "[build][pip] torch install failed (attempt $i), retrying..." && sleep 15; \
-    done
-RUN for i in 1 2 3; do \
-      pip install --no-cache-dir -r ./sidecar/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu && break; \
-      echo "[build][pip] requirements install failed (attempt $i), retrying..." && sleep 15; \
-    done
+RUN pip install --no-cache-dir --retries 10 --timeout 180 --prefer-binary -r ./sidecar/requirements.txt --extra-index-url https://download.pytorch.org/whl/cpu
 
 # 4. Copy Artifacts
 COPY --from=backend-builder /app/backend/target/release/library-backend /app/backend/backend-bin
