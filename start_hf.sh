@@ -167,7 +167,7 @@ else
     # cd /app/evolution && npm install qrcode-terminal
 fi
 
-npm run start &
+npm run start:prod &
 
 # Wait for sidecar and evolution to be ready
 echo "[boot] Waiting for services to wake up..."
