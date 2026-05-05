@@ -283,6 +283,43 @@ async fn main() {
 
     println!("[backend] v{} Starting...", APP_VERSION);
     
+    // AUTO-PROVISION 'halo' instance in background if it doesn't exist
+    let client_clone = state.client.clone();
+    tokio::spawn(async move {
+        println!("[auto-provision] Waiting for Evolution API to stabilize...");
+        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+        
+        for attempt in 1..=5 {
+            println!("[auto-provision] Attempt {} to create 'halo' instance...", attempt);
+            let create_url = "http://127.0.0.1:8080/instance/create";
+            let resp = client_clone.post(create_url)
+                .header("apikey", LIBRARIAN_KEY)
+                .json(&serde_json::json!({
+                    "instanceName": "halo",
+                    "qrcode": true,
+                    "integration": "WHATSAPP-BAILEYS"
+                }))
+                .send()
+                .await;
+
+            match resp {
+                Ok(r) if r.status().is_success() || r.status() == StatusCode::CONFLICT => {
+                    println!("[auto-provision] Instance 'halo' created or already exists.");
+                    break;
+                }
+                Ok(r) => {
+                    let status = r.status();
+                    let text = r.text().await.unwrap_or_default();
+                    println!("[auto-provision] Create failed ({}): {}", status, text);
+                }
+                Err(e) => {
+                    println!("[auto-provision] Error calling Evolution API: {}", e);
+                }
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+        }
+    });
+
     let static_files = ServeDir::new("/app/dist")
         .fallback(ServeFile::new("/app/dist/index.html"));
 
@@ -333,43 +370,6 @@ async fn main() {
         .layer(TraceLayer::new_for_http());
 
     println!("[backend] Running on http://0.0.0.0:7860");
-
-    // AUTO-PROVISION 'halo' instance in background if it doesn't exist
-    let client_clone = state.client.clone();
-    tokio::spawn(async move {
-        println!("[auto-provision] Waiting for Evolution API to stabilize...");
-        tokio::time::sleep(std::time::Duration::from_secs(15)).await;
-        
-        for attempt in 1..=5 {
-            println!("[auto-provision] Attempt {} to create 'halo' instance...", attempt);
-            let create_url = "http://127.0.0.1:8080/instance/create";
-            let resp = client_clone.post(create_url)
-                .header("apikey", LIBRARIAN_KEY)
-                .json(&serde_json::json!({
-                    "instanceName": "halo",
-                    "qrcode": true,
-                    "integration": "WHATSAPP-BAILEYS"
-                }))
-                .send()
-                .await;
-
-            match resp {
-                Ok(r) if r.status().is_success() || r.status() == StatusCode::CONFLICT => {
-                    println!("[auto-provision] Instance 'halo' created or already exists.");
-                    break;
-                }
-                Ok(r) => {
-                    let status = r.status();
-                    let text = r.text().await.unwrap_or_default();
-                    println!("[auto-provision] Create failed ({}): {}", status, text);
-                }
-                Err(e) => {
-                    println!("[auto-provision] Error calling Evolution API: {}", e);
-                }
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
-        }
-    });
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:7860").await.unwrap();
     axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await.unwrap();
