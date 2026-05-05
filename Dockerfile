@@ -58,6 +58,7 @@ WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 
 # Robust dependency fetch with explicit failure if retries are exhausted
+RUN mkdir -p src && printf "fn main() {}\n" > src/main.rs
 RUN ok=0; \
     for i in 1 2 3 4 5 6; do \
       if cargo fetch; then ok=1; break; fi; \
