@@ -39,6 +39,10 @@ export WA_WEB_VERSION="2.3000.1018224522"
 export WA_MOBILE="false"
 export WA_BROWSER="Chrome"
 
+# Force IPv4 and attempt a specific DNS for WhatsApp if default fails
+# This is a last-resort attempt to ensure e.whatsapp.net resolves
+echo "nameserver 8.8.8.8" > /etc/resolv.conf || echo "[warn] Failed to update resolv.conf"
+
 
 # Better session identification
 export CONFIG_SESSION_PHONE_CLIENT="Librarian AI"
@@ -66,6 +70,10 @@ ip addr show | grep mtu || true
 # Baileys Tweak: Try to force specific connection behavior via env
 export WA_MOBILE="false"
 export WA_BROWSER="Chrome"
+
+# Force IPv4 and attempt a specific DNS for WhatsApp if default fails
+# This is a last-resort attempt to ensure e.whatsapp.net resolves
+echo "nameserver 8.8.8.8" > /etc/resolv.conf || echo "[warn] Failed to update resolv.conf"
 
 # Fix permissions at runtime (HF runs as user 1000)
 echo "[boot] Fixing permissions for $(whoami)..."
