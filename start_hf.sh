@@ -39,11 +39,6 @@ export WA_WEB_VERSION="2.3000.1018224522"
 export WA_MOBILE="false"
 export WA_BROWSER="Chrome"
 
-# Force IPv4 at the host level (works if running as root)
-# If it fails, it's okay, we have NODE_OPTIONS
-echo "157.240.22.60 web.whatsapp.com" >> /etc/hosts || echo "[warn] Failed to update /etc/hosts for web.whatsapp.com"
-echo "157.240.22.60 e.whatsapp.net" >> /etc/hosts || echo "[warn] Failed to update /etc/hosts for e.whatsapp.net"
-echo "157.240.22.60 g.whatsapp.net" >> /etc/hosts || echo "[warn] Failed to update /etc/hosts for g.whatsapp.net"
 
 # Better session identification
 export CONFIG_SESSION_PHONE_CLIENT="Librarian AI"
