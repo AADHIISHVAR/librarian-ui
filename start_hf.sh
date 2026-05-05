@@ -1,23 +1,11 @@
 #!/bin/bash
 set -e
 
-# Diagnostic: Check if uniqueBooks.db is a real database or an LFS pointer
-echo "[boot] Diagnostic for uniqueBooks.db:"
-ls -lh /app/uniqueBooks.db
-if head -c 100 /app/uniqueBooks.db | grep -q "version https://git-lfs"; then
-  echo "[error] /app/uniqueBooks.db is a Git LFS pointer, not a real database!"
-  # Try to fix it if git is available (it should be in the builder, but maybe not runtime)
-  # On HF, we hope the builder did its job.
-else
-  echo "[boot] /app/uniqueBooks.db seems to be a real file."
-fi
-
-# Setup library database
-cp /app/uniqueBooks.db /app/library_database.db
-
-# Ensure overdue tracking databases exist as valid SQLite files (not empty files)
-for db in /app/ilibrary-database-all.db /app/combined-library.db; do
+# Setup library databases
+echo "[boot] Ensuring library databases exist..."
+for db in /app/uniqueBooks.db /app/library_database.db /app/ilibrary-database-all.db /app/combined-library.db; do
   if [ ! -f "$db" ]; then
+    echo "[boot] Creating initial empty database: $db"
     sqlite3 "$db" "VACUUM;"
   fi
 done

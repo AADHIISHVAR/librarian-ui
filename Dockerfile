@@ -112,14 +112,12 @@ COPY --from=evolution-builder /app/evolution/tsconfig.json /app/evolution/tsconf
 
 # 5. Application Code & Data
 COPY sidecar/ /app/sidecar/
-COPY uniqueBooks.db /app/uniqueBooks.db
 COPY start_hf.sh ./
 
 # 6. Final Setup & Permissions
 RUN mkdir -p /app/evolution/instances /app/evolution/prisma /app/sidecar /app/backend /app/dist && \
     chmod +x /app/backend/backend-bin && \
     chmod +x /app/start_hf.sh && \
-    cp /app/uniqueBooks.db /app/library_database.db && \
     chmod -R 777 /app/evolution /app/sidecar /app/backend
 
 # Environment
