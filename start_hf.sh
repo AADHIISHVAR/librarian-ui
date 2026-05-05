@@ -54,6 +54,8 @@ echo "[boot] Network Audit: Testing reachability and DNS..."
 echo "--- DNS Check ---"
 getent hosts web.whatsapp.com || echo "web.whatsapp.com resolution failed"
 getent hosts g.whatsapp.net || echo "g.whatsapp.net resolution failed"
+getent hosts e.whatsapp.net || echo "e.whatsapp.net resolution failed"
+
 
 echo "--- Ping Check ---"
 ping -c 1 -W 2 8.8.8.8 || echo "Ping to 8.8.8.8 failed"
