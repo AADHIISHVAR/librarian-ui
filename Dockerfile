@@ -17,9 +17,10 @@ RUN npm config set fetch-retries 10 && \
 COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
 
-# CRITICAL: Disable the onSuccess hook in tsup.config.ts to avoid crashes
-# and handle the copy manually in the Dockerfile
-RUN sed -i '/onSuccess:/,+3d' tsup.config.ts || true
+# CRITICAL: Disable the onSuccess hook in tsup.config.ts by replacing it with a no-op
+# This avoids crashes if the hook fails in Docker environments
+RUN sed -i 's/onSuccess: async () => {/onSuccess: async () => {}, \/\/ Disabled/g' tsup.config.ts && \
+    sed -i "/cpSync('src\/utils\/translations'/,+1d" tsup.config.ts || true
 
 RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 
@@ -34,7 +35,7 @@ RUN NODE_OPTIONS="--max-old-space-size=4096" npx tsup src/main.ts \
     --no-splitting
 
 # Manually copy translations since we disabled the hook
-RUN mkdir -p dist/translations && cp -r src/utils/translations/* dist/translations/ || echo "No translations found"
+RUN mkdir -p dist/translations && (cp -r src/utils/translations/* dist/translations/ || echo "No translations found")
 
 # Remove devDependencies to keep the final image small
 RUN npm prune --omit=dev && npm cache clean --force
