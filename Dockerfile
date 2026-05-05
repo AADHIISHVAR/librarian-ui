@@ -26,8 +26,8 @@ RUN npx prisma generate --schema ./prisma/sqlite-schema.prisma
 # Using 3072 to give enough headroom for the build
 RUN NODE_OPTIONS="--max-old-space-size=3072" npx tsup src/main.ts --format cjs --clean --sourcemap false
 
-# Remove devDependencies to keep the final image small
-RUN npm prune --omit=dev && npm cache clean --force
+# Keep build output stable in HF builders; pruning can fail on some npm trees.
+# Size is slightly larger, but avoids non-critical build failures.
 
 # ==========================================
 # Stage 2: Rust Backend Builder
