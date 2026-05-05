@@ -3,7 +3,8 @@
 # ==========================================
 FROM node:20-bookworm-slim AS evolution-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git ffmpeg wget curl bash openssl python3 build-essential && \
+    git ffmpeg wget curl bash openssl python3 build-essential ca-certificates && \
+    update-ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app/evolution
@@ -11,8 +12,12 @@ COPY evo_whatsapp_api/evolution-api/package*.json ./
 
 # Install dependencies including devDeps for build
 # Added @swc/core to support decorators during tsup build
-RUN npm install --no-audit --no-fund --ignore-scripts && \
-    npm install @swc/core --no-audit --no-fund --ignore-scripts
+RUN npm config set fetch-retries 10 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-timeout 300000 && \
+    (npm install --no-audit --no-fund --ignore-scripts || npm install --no-audit --no-fund --ignore-scripts) && \
+    (npm install @swc/core --no-audit --no-fund --ignore-scripts || npm install @swc/core --no-audit --no-fund --ignore-scripts)
 
 COPY evo_whatsapp_api/evolution-api/ ./
 ENV PRISMA_CLI_BINARY_TARGETS="debian-openssl-3.0.x"
@@ -34,23 +39,31 @@ RUN NODE_OPTIONS="--max-old-space-size=3072" npx tsup src/main.ts --format cjs -
 # ==========================================
 FROM rust:1.85-slim AS backend-builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config libssl-dev build-essential && \
+    pkg-config libssl-dev build-essential ca-certificates git curl && \
+    update-ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 ENV CARGO_NET_RETRY=10
 ENV CARGO_HTTP_TIMEOUT=600
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 ENV CARGO_INCREMENTAL=0
 
 WORKDIR /app/backend
 COPY backend/Cargo.toml backend/Cargo.lock ./
 
 # Pre-fetch dependencies to warm cargo cache
-RUN cargo fetch || (sleep 5 && cargo fetch)
+RUN for i in 1 2 3 4 5 6; do \
+      cargo fetch && break; \
+      echo "[build][cargo] fetch failed (attempt $i), retrying..." && sleep 20; \
+    done
 
 # Build real application
 COPY backend/src ./src
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0 -C link-arg=-s"
-RUN CARGO_BUILD_JOBS=1 cargo build --release || (sleep 5 && CARGO_BUILD_JOBS=1 cargo build --release)
+RUN for i in 1 2 3; do \
+      CARGO_BUILD_JOBS=1 cargo build --release && break; \
+      echo "[build][cargo] build failed (attempt $i), retrying..." && sleep 20; \
+    done
 
 # ==========================================
 # Stage 3: Final Runtime Image
