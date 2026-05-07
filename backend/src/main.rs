@@ -58,7 +58,7 @@ async fn proxy_handler(
         .path_and_query()
         .map(|pq| pq.as_str().to_owned())
         .unwrap_or_default();
-    let target_url = format!("http://127.0.0.1:8080{}", path_query);
+    let target_url = format!("http://20.6.122.244:8080{}", path_query);
     
     tracing::debug!("[proxy] {} -> {}", method, target_url);
     
@@ -150,7 +150,7 @@ async fn send_message(
     Json(payload): Json<SendMessageRequest>,
 ) -> impl IntoResponse {
     let instance_name = "halo";
-    let evolution_url = "http://127.0.0.1:8080";
+    let evolution_url = "http://20.6.122.244:8080";
 
     let presence_url = format!("{}/chat/sendPresence/{}", evolution_url, instance_name);
     let _ = state.client.post(&presence_url)
@@ -292,7 +292,7 @@ async fn main() {
         
         for attempt in 1..=5 {
             println!("[auto-provision] Attempt {} to create 'halo' instance...", attempt);
-            let create_url = "http://127.0.0.1:8080/instance/create";
+            let create_url = "http://20.6.122.244:8080/instance/create";
             let resp = client_clone.post(create_url)
                 .header("apikey", LIBRARIAN_KEY)
                 .json(&serde_json::json!({

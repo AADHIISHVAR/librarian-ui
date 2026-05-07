@@ -21,7 +21,7 @@ echo "[boot] Starting Evolution WhatsApp API..."
 cd /app/evolution
 
 # Environment for Evolution API - HARDENED FOR HF
-export LOG_LEVEL="DEBUG"
+export LOG_LEVEL="INFO"
 export LOG_COLOR="false"
 export LOG_Pino_Pretty="true"
 export QRCODE_TERMINAL="true"
@@ -129,6 +129,7 @@ if [ ! -f "$DB_FILE" ]; then
 fi
 
 
+
 # NUCLEAR CLEANUP: Completely wipe 'halo' state to ensure a fresh session
 echo "[boot] Wiping any existing 'halo' session files and database entries..."
 rm -rf /app/evolution/instances/halo
@@ -154,22 +155,12 @@ else
     echo "[boot] WARNING: Database file $DB_FILE missing after prisma push!"
 fi
 
-echo "[boot] Starting Evolution Node process (Logging to STDOUT)..."
-# Setting LOG_LEVEL to DEBUG to capture linkage failures
-export LOG_LEVEL="DEBUG"
+# The Evolution API is now hosted on GCP (20.6.122.244)
+# We no longer start it locally on HF.
+echo "[boot] Evolution API is remote (GCP: 20.6.122.244). Skipping local startup."
 
-# Diagnostic: Verify qrcode-terminal is present
-if [ -d "/app/evolution/node_modules/qrcode-terminal" ]; then
-    echo "[boot] qrcode-terminal found in node_modules ✅"
-else
-    echo "[boot] WARNING: qrcode-terminal NOT FOUND in /app/evolution/node_modules!"
-    # Try to install it if missing (last resort)
-    # cd /app/evolution && npm install qrcode-terminal
-fi
 
-npm run start:prod &
-
-# Wait for sidecar and evolution to be ready
+# Wait for sidecar to be ready
 echo "[boot] Waiting for services to wake up..."
 max_retries=60
 count=0
@@ -183,129 +174,16 @@ while ! curl -s http://localhost:8001/health > /dev/null; do
 done
 echo "[boot] AI Sidecar ready ✅"
 
-count=0
-while ! curl -sf http://localhost:8080/instance/fetchInstances -H "apikey: hellowork.1234" > /dev/null; do
-  sleep 2
-  count=$((count+1))
-  if [ $count -ge $max_retries ]; then
-    echo "[error] Evolution API failed to start or authentication failed"
-    # Diagnostic: Check if port 8080 is even listening
-    echo "[boot] Diagnostic: Netstat for 8080:"
-    netstat -tulpn | grep 8080 || echo "Port 8080 is NOT listening"
-    exit 1
-  fi
-done
-echo "[boot] Evolution API ready ✅"
+# The Evolution API is remote. We no longer need to check local health.
+echo "[boot] Evolution API remote check skipped."
 
-# FORCE CREATE 'halo' instance now to trigger QR generation in terminal
-echo "[boot] Auto-provisioning 'halo' instance for instant QR..."
-CREATE_RESP=$(curl -s -w "%{http_code}" -o /tmp/create_resp.log -X POST "http://localhost:8080/instance/create" \
-     -H "Content-Type: application/json" \
-     -H "apikey: hellowork.1234" \
-     -d '{
-       "instanceName": "halo",
-       "qrcode": true,
-       "integration": "WHATSAPP-BAILEYS"
-     }')
-
-if [ "$CREATE_RESP" != "201" ] && [ "$CREATE_RESP" != "200" ]; then
-  echo "[error] Failed to create 'halo' instance. HTTP Status: $CREATE_RESP"
-  cat /tmp/create_resp.log
-  # We don't exit 1 here to allow other services to start, but this is a critical failure
-fi
-
-# Give the API time to actually initialize the instance in memory/DB
-echo "[boot] Waiting 5s for instance initialization..."
-sleep 5
-
-# Trigger connect once immediately so QR generation starts without admin login.
-echo "[boot] Triggering immediate connect for 'halo'..."
-curl -v -X GET "http://localhost:8080/instance/connect/halo" \
-     -H "apikey: hellowork.1234" || true
-
-# Keep QR warm in background from process start.
-echo "[boot] Starting background QR keeper for 'halo'..."
-python3 - <<'PYBOOT' &
-import json, os, subprocess, time, urllib.request
-
-API = "http://127.0.0.1:8080/instance/connect/halo"
-HDR = {"apikey": "hellowork.1234"}
-CACHE_FILE = "/tmp/whatsapp_qr.json"
+# Evolution API is remote. Auto-provisioning handled via GCP/manual setup.
+echo "[boot] Skipping local auto-provisioning of 'halo' instance."
 
 
-def fetch():
-    req = urllib.request.Request(API, headers=HDR)
-    with urllib.request.urlopen(req, timeout=45) as resp:
-        return json.load(resp)
+# The Evolution API is remote. Local QR keeper is no longer needed.
+echo "[boot] Skipping local QR keeper (API is remote)."
 
-
-def render_ascii(code: str) -> None:
-    path = "/tmp/hf_qr_payload.txt"
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(code)
-    env = os.environ.copy()
-    env["NODE_PATH"] = "/app/evolution/node_modules"
-    js = (
-        "const fs=require('fs');const qrt=require('qrcode-terminal');"
-        "const code=fs.readFileSync('/tmp/hf_qr_payload.txt','utf8');"
-        "qrt.generate(code,{small:true},function(o){"
-        "process.stdout.write('\\n========== [boot] WhatsApp QR (scan with phone) ==========\\n'+o+'\\n============================================================\\n');"
-        "});"
-    )
-    r = subprocess.run(["node", "-e", js], cwd="/app/evolution", env=env, capture_output=True, text=True)
-    if r.stdout:
-        print(r.stdout, end="")
-    if r.stderr:
-        print(r.stderr, end="")
-    if r.returncode != 0:
-        print(f"[boot][QR] qrcode-terminal exit {r.returncode}")
-
-
-time.sleep(3)
-last_code = None
-while True:
-    try:
-        j = fetch()
-    except Exception as e:
-        print(f"[boot][QR] keeper: HTTP error: {e}")
-        time.sleep(3)
-        continue
-
-    if isinstance(j, dict) and j.get("error"):
-        print(f"[boot][QR] keeper: API error: {j.get('message')}")
-        time.sleep(3)
-        continue
-
-    p = j.get("qrcode") if isinstance(j, dict) else None
-    if not isinstance(p, dict):
-        p = j if isinstance(j, dict) else {}
-
-    code = p.get("code")
-    b64 = p.get("base64")
-
-    if isinstance(code, str) and len(code) > 10:
-        if code != last_code:
-            print(f"[boot][QR] keeper: new raw QR string length={len(code)}")
-            last_code = code
-            render_ascii(code)
-        try:
-            with open(CACHE_FILE, "w") as f:
-                json.dump({"code": code, "base64": b64, "timestamp": time.time()}, f)
-        except Exception as e:
-            print(f"[boot][QR] keeper: failed to save cache: {e}")
-    elif isinstance(b64, str) and len(b64) > 80:
-        try:
-            with open(CACHE_FILE, "w") as f:
-                json.dump({"code": None, "base64": b64, "timestamp": time.time()}, f)
-        except Exception as e:
-            print(f"[boot][QR] keeper: failed to save base64 cache: {e}")
-        print(f"[boot][QR] keeper: base64 QR present (len={len(b64)}), waiting for raw code...")
-    else:
-        keys = list(j.keys()) if isinstance(j, dict) else []
-        print(f"[boot][QR] keeper: waiting... keys={keys}")
-
-    time.sleep(5)
-PYBOOT
 
 echo "[boot] ALL SERVICES DISCOVERED. Starting Axum Backend (Primary Gateway)..."
 echo "[boot] If ASCII QR did not print, check Evolution lines above or proxy logs for [proxy][instance/connect]."
