@@ -4,8 +4,9 @@ const isGitHubPages = window.location.hostname.includes('github.io');
 const BACKEND_URL = isGitHubPages 
   ? "https://aadhiishvar-library-assist-alphav1-10.hf.space" 
   : "";
-
+ 
 const LIBRARIAN_KEY = "hellowork.1234";
+
 
 export async function search(prompt, library = "all") {
   const res = await fetch(`${BACKEND_URL}/api/search`, {
@@ -126,3 +127,4 @@ export async function getCachedQR() {
   if (!res.ok) return null;
   return await res.json();
 }
+
