@@ -103,11 +103,12 @@ async fn proxy_handler(
             
             // DETECT AND CACHE QR CODE
             if path_query.contains("/instance/connect") {
+                tracing::info!("[proxy] Checking for QR in response from: {}", target_url);
                 if let Ok(v) = serde_json::from_slice::<serde_json::Value>(&bytes) {
                     let qr_data = v.get("qrcode").or(v.get("data").and_then(|d| d.get("qrcode"))).unwrap_or(&v);
                     let code = qr_data.get("code").and_then(|c| c.as_str());
                     let b64 = qr_data.get("base64").and_then(|b| b.as_str());
-
+ 
                     if code.is_some() || b64.is_some() {
                         println!("[proxy][qr] Detected QR code in response. Updating cache...");
                         
@@ -120,7 +121,7 @@ async fn proxy_handler(
                                 .as_secs()
                         });
                         let _ = std::fs::write("/tmp/whatsapp_qr.json", cache_obj.to_string());
-
+ 
                         if let Some(c) = code {
                             let qr_js_str = serde_json::to_string(c).unwrap_or_else(|_| "\"\"".to_string());
                             let js = format!(
@@ -133,7 +134,11 @@ async fn proxy_handler(
                                 .env("NODE_PATH", "/app/evolution/node_modules")
                                 .status();
                         }
+                    } else {
+                        tracing::warn!("[proxy][qr] No QR found in response body. Body: {:?}", String::from_utf8_lossy(&bytes));
                     }
+                } else {
+                    tracing::warn!("[proxy][qr] Response body is not valid JSON. Body: {:?}", String::from_utf8_lossy(&bytes));
                 }
             }
             builder.body(Body::from(bytes)).unwrap().into_response()
@@ -332,7 +337,11 @@ async fn main() {
         .route("/api/whatsapp/send", post(send_message))
         .route("/api/whatsapp/qr", get(|| async {
             match std::fs::read_to_string("/tmp/whatsapp_qr.json") {
-                Ok(content) => (StatusCode::OK, content).into_response(),
+                Ok(content) => (
+                    StatusCode::OK, 
+                    [header::CONTENT_TYPE, "application/json"], 
+                    content
+                ).into_response(),
                 Err(_) => (StatusCode::NOT_FOUND, "QR not ready".to_string()).into_response(),
             }
         }))
