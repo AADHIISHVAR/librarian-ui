@@ -155,9 +155,9 @@ else
     echo "[boot] WARNING: Database file $DB_FILE missing after prisma push!"
 fi
 
-# The Evolution API is now hosted on GCP (20.6.122.244)
+# The Evolution API is now hosted on Azure (20.6.122.244)
 # We no longer start it locally on HF.
-echo "[boot] Evolution API is remote (GCP: 20.6.122.244). Skipping local startup."
+echo "[boot] Evolution API is remote (Azure: 20.6.122.244). Skipping local startup."
 
 
 # Wait for sidecar to be ready
