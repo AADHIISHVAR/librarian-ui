@@ -1,0 +1,31 @@
+# Build artifacts
+**/target/
+**/dist/
+**/node_modules/
+**/venv/
+**/.ruff_cache/
+**/__pycache__/
+*.wasm
+*.js.map
+
+# Logs and temporary files
+*.log
+*.pid
+.env
+.DS_Store
+
+# Databases (except the ones we need for production)
+# Keep library_database.db and uniqueBooks.db if explicitly added
+*.db
+!library_database.db
+!uniqueBooks.db
+
+# Large binary files
+*.wasm
+*.rlib
+*.pdb
+
+# IDE settings
+.vscode/
+.idea/
+.cursor/
