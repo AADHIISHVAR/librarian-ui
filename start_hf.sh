@@ -4,10 +4,17 @@ set -e
 # Setup library databases
 echo "[boot] Syncing library databases from HF Bucket..."
 BUCKET_URL="https://huggingface.co/datasets/AADHIISHVAR/library_assist_alphav1.10-storage/resolve/main"
+# Use the HF token for authentication to ensure download works even if repo is private
+HF_TOKEN_HEADER="Authorization: Bearer $HF_TOKEN"
 
 for db in uniqueBooks.db library_database.db; do
   echo "[boot] Downloading $db..."
-  curl -L "$BUCKET_URL/$db" -o "/app/$db" || echo "[warn] Failed to download $db"
+  if curl -f -H "$HF_TOKEN_HEADER" -L "$BUCKET_URL/$db" -o "/app/$db"; then
+    echo "[boot] Successfully downloaded $db"
+  else
+    echo "[warn] Failed to download $db from bucket, creating empty fallback..."
+    sqlite3 "/app/$db" "VACUUM;"
+  fi
 done
 
 # Ensure other legacy databases exist as empty files if missing
