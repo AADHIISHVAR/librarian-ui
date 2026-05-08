@@ -2,8 +2,16 @@
 set -e
  
 # Setup library databases
-echo "[boot] Ensuring library databases exist..."
-for db in /app/uniqueBooks.db /app/library_database.db /app/ilibrary-database-all.db /app/combined-library.db; do
+echo "[boot] Syncing library databases from HF Bucket..."
+BUCKET_URL="https://huggingface.co/datasets/AADHIISHVAR/library_assist_alphav1.10-storage/resolve/main"
+
+for db in uniqueBooks.db library_database.db; do
+  echo "[boot] Downloading $db..."
+  curl -L "$BUCKET_URL/$db" -o "/app/$db" || echo "[warn] Failed to download $db"
+done
+
+# Ensure other legacy databases exist as empty files if missing
+for db in /app/ilibrary-database-all.db /app/combined-library.db; do
   if [ ! -f "$db" ]; then
     echo "[boot] Creating initial empty database: $db"
     sqlite3 "$db" "VACUUM;"
