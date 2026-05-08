@@ -4,16 +4,33 @@ set -e
 # Setup library databases
 echo "[boot] Syncing library databases from HF Bucket..."
 BUCKET_URL="https://huggingface.co/datasets/AADHIISHVAR/library_assist_alphav1.10-storage/resolve/main"
-# Use the HF token for authentication to ensure download works even if repo is private
 HF_TOKEN_HEADER="Authorization: Bearer $HF_TOKEN"
+
+# Track if we managed to download any real data
+downloaded_any=false
 
 for db in uniqueBooks.db library_database.db; do
   echo "[boot] Downloading $db..."
   if curl -f -H "$HF_TOKEN_HEADER" -L "$BUCKET_URL/$db" -o "/app/$db"; then
     echo "[boot] Successfully downloaded $db"
+    downloaded_any=true
   else
     echo "[warn] Failed to download $db from bucket, creating empty fallback..."
     sqlite3 "/app/$db" "VACUUM;"
+  fi
+done
+
+# Only seed with mock data if we didn't get any production databases from the bucket
+if [ "$downloaded_any" = false ]; then
+  echo "[boot] No production data found in bucket. Seeding with mock data for testing..."
+  python3 /app/seed_db.py || echo "[warn] Seeding failed, continuing..."
+fi
+
+# Ensure other legacy databases exist as empty files if missing
+for db in /app/ilibrary-database-all.db /app/combined-library.db; do
+  if [ ! -f "$db" ]; then
+    echo "[boot] Creating initial empty database: $db"
+    sqlite3 "$db" "VACUUM;"
   fi
 done
 
