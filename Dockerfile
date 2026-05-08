@@ -29,7 +29,7 @@ COPY backend/src ./src
 ENV RUSTFLAGS="-C codegen-units=1 -C opt-level=z -C debuginfo=0 -C link-arg=-s"
 RUN ok=0; \
     for i in 1 2 3; do \
-      if CARGO_BUILD_JOBS=1 cargo build --release; then ok=1; break; fi; \
+      if CARGO_BUILD_JOBS=1 cargo build --release --quiet; then ok=1; break; fi; \
       echo "[build][cargo] build failed (attempt $i), retrying..." && sleep 20; \
     done; \
     test "$ok" -eq 1
