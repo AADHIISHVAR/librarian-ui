@@ -1,0 +1,16 @@
+nohup: ignoring input
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+warning: struct `AppState` is never constructed
+ --> src/db.rs:4:12
+  |
+4 | pub struct AppState {
+  |            ^^^^^^^^
+  |
+  = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `library-backend` (bin "library-backend") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 0.52s
+     Running `target/release/library-backend`
+[backend] Running on http://localhost:3000
