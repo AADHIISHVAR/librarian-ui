@@ -37,11 +37,11 @@
         acc_no: trimmedAccNo || null
       });
 
-      if (res.error) {
+      if (res && res.error) {
         error = `Server Error: ${res.error}`;
         books = [];
       } else {
-        books = res.books || [];
+        books = Array.isArray(res) ? res : (res.books || []);
         if (books.length === 0) {
           error = "No books found matching your criteria.";
         }

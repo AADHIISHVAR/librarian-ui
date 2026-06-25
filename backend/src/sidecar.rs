@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-const SIDECAR_URL: &str = "http://localhost:8001";
+fn get_sidecar_url() -> String {
+    std::env::var("SIDECAR_URL").unwrap_or_else(|_| "http://localhost:8001".to_string())
+}
 
 #[derive(Serialize)]
 struct SearchPayload {
@@ -31,6 +33,7 @@ pub struct Book {
     pub dept:          String,
     pub subject:       String,
     pub description:   String,
+    pub cover_url:     Option<String>,
     pub available:     bool,
     pub similarity:    f64,
 }
@@ -48,7 +51,7 @@ pub async fn search(
 ) -> Result<SidecarResponse, String> {
     let client = reqwest::Client::new();
     let res = client
-        .post(format!("{}/search", SIDECAR_URL))
+        .post(format!("{}/api/search", get_sidecar_url()))
         .json(&SearchPayload {
             prompt:  prompt.to_string(),
             library: library.to_string(),
@@ -69,7 +72,7 @@ pub async fn list_books(
 ) -> Result<Vec<Book>, String> {
     let client = reqwest::Client::new();
     let res = client
-        .post(format!("{}/list", SIDECAR_URL))
+        .post(format!("{}/api/list", get_sidecar_url()))
         .json(&ListPayload {
             library: library.to_string(),
             query: query.map(|s| s.to_string()),
@@ -108,7 +111,7 @@ pub async fn advanced_search(
 
     let client = reqwest::Client::new();
     let res = client
-        .post(format!("{}/advanced-search", SIDECAR_URL))
+        .post(format!("{}/api/advanced-search", get_sidecar_url()))
         .json(&payload)
         .send()
         .await
@@ -124,3 +127,83 @@ pub async fn advanced_search(
         .await
         .map_err(|e| e.to_string())
 }
+
+#[derive(Serialize)]
+struct BatchPayload {
+    acc_nos: Vec<String>,
+}
+
+pub async fn get_books_batch(acc_nos: Vec<String>) -> Result<Vec<Book>, String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .post(format!("{}/api/books/batch", get_sidecar_url()))
+        .json(&BatchPayload { acc_nos })
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let err_body = res.text().await.unwrap_or_default();
+        return Err(format!("Sidecar batch error ({}): {}", status, err_body));
+    }
+
+    res.json::<Vec<Book>>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+struct SettingPayload {
+    key: String,
+    value: String,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct SettingResponse {
+    pub key: String,
+    pub value: String,
+}
+
+pub async fn get_setting(key: &str) -> Result<SettingResponse, String> {
+    let client = reqwest::Client::new();
+    let res = client
+        .get(format!("{}/api/settings/{}", get_sidecar_url(), key))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let err_body = res.text().await.unwrap_or_default();
+        return Err(format!("Sidecar setting error ({}): {}", status, err_body));
+    }
+
+    res.json::<SettingResponse>()
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn set_setting(key: &str, value: &str) -> Result<(), String> {
+    let client = reqwest::Client::new();
+    let payload = SettingPayload {
+        key: key.to_string(),
+        value: value.to_string(),
+    };
+    let res = client
+        .post(format!("{}/api/settings", get_sidecar_url()))
+        .json(&payload)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        let status = res.status();
+        let err_body = res.text().await.unwrap_or_default();
+        return Err(format!("Sidecar setting error ({}): {}", status, err_body));
+    }
+
+    Ok(())
+}
+
+

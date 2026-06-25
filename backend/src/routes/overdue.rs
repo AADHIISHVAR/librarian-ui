@@ -18,8 +18,10 @@ pub struct OverdueBook {
 }
 
 pub async fn get_overdue_books() -> impl IntoResponse {
-    let db_all_path = "/app/ilibrary-database-all.db";
-    let db_combined_path = "/app/combined-library.db";
+    let db_all_path = std::env::var("DATABASE_ALL_PATH")
+        .unwrap_or_else(|_| "/app/ilibrary-database-all.db".to_string());
+    let db_combined_path = std::env::var("DATABASE_COMBINED_PATH")
+        .unwrap_or_else(|_| "/app/combined-library.db".to_string());
 
     let conn = match Connection::open(db_all_path) {
         Ok(c) => c,
@@ -38,11 +40,20 @@ pub async fn get_overdue_books() -> impl IntoResponse {
             bc.acc_no, 
             bc.id_no, 
             bc.due_date,
-            cb.title,
-            cb.author
+            b.title,
+            b.author
         FROM book_circle bc
-        JOIN combined.combined_book cb ON bc.acc_no = cb.acc_no
+        JOIN book b ON bc.acc_no = b.acc_no
+        LEFT JOIN personal p ON LOWER(bc.id_no) = LOWER(p.id_no)
         WHERE bc.due_date < ?
+          AND NOT (
+            p.cat_no IN (2, 4, 5) AND 
+            (p.id_no LIKE '2K%' OR p.id_no LIKE '2k%') AND
+            (
+              (p.cat_no = 2 AND (2000 + CAST(SUBSTR(p.id_no, 3, 2) AS INTEGER)) < 2023) OR
+              (p.cat_no IN (4, 5) AND (2000 + CAST(SUBSTR(p.id_no, 3, 2) AS INTEGER)) < 2025)
+            )
+          )
         ORDER BY bc.due_date ASC
     ") {
         Ok(s) => s,

@@ -1,28 +1,20 @@
 import hashlib
 import math
 import numpy as np
+import requests
+import os
+from dotenv import load_dotenv
 
-_model = None
-_has_sentence_transformers = False
-
-try:
-    from sentence_transformers import SentenceTransformer
-
-    _model = SentenceTransformer(
-        "nomic-ai/nomic-embed-text-v1.5",
-        trust_remote_code=True,
-    )
-    _has_sentence_transformers = True
-    print("[embedder] Loaded sentence-transformers model.")
-except Exception as exc:
-    # Build must stay green on constrained environments (HF).
-    print(f"[embedder] sentence-transformers unavailable, using deterministic fallback: {exc}")
+load_dotenv()
+HF_TOKEN = os.getenv("HF_TOKEN")
+MODEL_ID = "sentence-transformers/all-MiniLM-L6-v2"
+API_URL = f"https://api-inference.huggingface.co/pipeline/feature-extraction/{MODEL_ID}"
 
 
-def _fallback_embedding(text: str, task: str, dim: int = 768) -> list[float]:
+def _fallback_embedding(text: str, task: str, dim: int = 384) -> list[float]:
     """
     Deterministic lightweight embedding fallback.
-    Uses repeated SHA-256 digests to fill a 768-d vector and L2-normalizes it.
+    Uses repeated SHA-256 digests to fill a 384-d vector and L2-normalizes it.
     """
     seed = f"{task}: {text}".encode("utf-8")
     values = []
@@ -42,8 +34,30 @@ def _fallback_embedding(text: str, task: str, dim: int = 768) -> list[float]:
 
 
 def get_embedding(text: str, task: str = "search_query") -> list[float]:
+    if not HF_TOKEN:
+        print("[embedder] No HF_TOKEN found, using fallback.")
+        return _fallback_embedding(text, task)
+
     prefixed = f"{task}: {text}"
-    if _has_sentence_transformers and _model is not None:
-        vector = _model.encode(prefixed, normalize_embeddings=True)
-        return vector.tolist()
+    try:
+        headers = {"Authorization": f"Bearer {HF_TOKEN}"}
+        response = requests.post(
+            API_URL, headers=headers, json={"inputs": prefixed}, timeout=10
+        )
+
+        if response.status_code == 200:
+            vector = response.json()
+            # HF API can return a list of lists
+            if (
+                isinstance(vector, list)
+                and len(vector) > 0
+                and isinstance(vector[0], list)
+            ):
+                return vector[0]
+            return vector
+        else:
+            print(f"[embedder] API error {response.status_code}: {response.text}")
+    except Exception as e:
+        print(f"[embedder] API request failed: {e}")
+
     return _fallback_embedding(text, task)

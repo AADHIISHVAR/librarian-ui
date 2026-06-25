@@ -21,8 +21,9 @@
     
     try {
       const res = await listBooks(libraryId, query);
-      console.log(`[catalog] Received ${res.books?.length || 0} books`);
-      books = res.books || [];
+      const booksList = Array.isArray(res) ? res : (res.books || []);
+      console.log(`[catalog] Received ${booksList.length} books`);
+      books = booksList;
       if (books.length === 0) {
         error = "No books found in this category.";
       }

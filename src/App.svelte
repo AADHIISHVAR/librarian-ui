@@ -4,11 +4,14 @@
   import AdvancedSearchView from './components/AdvancedSearchView.svelte';
   import AdminLoginView from './components/AdminLoginView.svelte';
   import NeuralyzerView from './components/NeuralyzerView.svelte';
+  import AboutView from './components/AboutView.svelte';
+
+  import { onMount } from 'svelte';
 
   let activeTab = 'AI';
   let showBetaNotice = true;
   let showMenu = false;
-  let currentView = 'Main'; // 'Main' | 'Admin' | 'Neuralyzer'
+  let currentView = 'Main'; // 'Main' | 'Admin' | 'Neuralyzer' | 'About'
 
   function dismissNotice() {
     showBetaNotice = false;
@@ -18,9 +21,43 @@
     showMenu = !showMenu;
   }
 
+  function updateUrl(path) {
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path);
+    }
+  }
+
+  function handleNavigation() {
+    const path = window.location.pathname;
+    if (path.startsWith('/admin_dashboard')) {
+      currentView = 'Admin';
+    } else if (path.startsWith('/neuralyzer')) {
+      currentView = 'Neuralyzer';
+    } else if (path.startsWith('/about')) {
+      currentView = 'About';
+    } else {
+      currentView = 'Main';
+    }
+  }
+
+  onMount(() => {
+    window.addEventListener('popstate', handleNavigation);
+    handleNavigation();
+    return () => window.removeEventListener('popstate', handleNavigation);
+  });
+
   function setView(view) {
     currentView = view;
     showMenu = false;
+    if (view === 'Admin') {
+      updateUrl('/admin_dashboard');
+    } else if (view === 'Neuralyzer') {
+      updateUrl('/neuralyzer');
+    } else if (view === 'About') {
+      updateUrl('/about');
+    } else {
+      updateUrl('/');
+    }
   }
 
   const tabs = [
@@ -93,6 +130,9 @@
           <div class="menu-item" on:click={() => setView('Neuralyzer')}>
             <span class="menu-icon">✨</span> The Flashy Thingy
           </div>
+          <div class="menu-item" on:click={() => setView('About')}>
+            <span class="menu-icon">ℹ️</span> About Librarian
+          </div>
           {#if currentView !== 'Main'}
             <div class="menu-item divider-top" on:click={() => setView('Main')}>
               <span class="menu-icon">🏠</span> Back to Search
@@ -104,11 +144,13 @@
   </div>
 </header>
 
-<main>
+<main class:wide-layout={currentView === 'Admin'}>
   {#if currentView === 'Admin'}
     <AdminLoginView />
   {:else if currentView === 'Neuralyzer'}
     <NeuralyzerView />
+  {:else if currentView === 'About'}
+    <AboutView />
   {:else}
     {#if activeTab === 'AI'}
       <AISearchView />
@@ -278,7 +320,16 @@
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  main.wide-layout {
+    max-width: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
 </style>
 
 
-<footer>LIBRARIAN AI · Beta v1.2 · COLLEGE LIBRARY SYSTEM</footer>
+{#if currentView !== 'Admin'}
+  <footer>LIBRARIAN AI · Beta v1.2 · COLLEGE LIBRARY SYSTEM</footer>
+{/if}

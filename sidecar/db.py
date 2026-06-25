@@ -26,7 +26,7 @@ def vector_to_blob(vector: list[float]) -> bytes:
 
 def blob_to_vector(blob: bytes) -> list[float]:
     """Convert raw bytes back to list of floats."""
-    n = len(blob) // 4   # 4 bytes per float32
+    n = len(blob) // 4  # 4 bytes per float32
     return list(struct.unpack(f"{n}f", blob))
 
 
@@ -41,7 +41,7 @@ def setup_vec_table():
         CREATE VIRTUAL TABLE IF NOT EXISTS vec_books
         USING vec0(
             accession_num TEXT PRIMARY KEY,
-            embedding     float[768]
+            embedding     float[384]
         );
     """)
     conn.commit()
@@ -58,21 +58,31 @@ def upsert_embedding(accession_num: str, vector: list[float], conn=None):
         should_close = True
 
     # 1. Update standard table (REPLACE works fine here)
-    conn.execute("REPLACE INTO book_embeddings (accession_num, embedding) VALUES (?, ?)", (accession_num, blob))
+    conn.execute(
+        "REPLACE INTO book_embeddings (accession_num, embedding) VALUES (?, ?)",
+        (accession_num, blob),
+    )
 
     # 2. Update virtual table (vec0)
     try:
         conn.execute("DELETE FROM vec_books WHERE accession_num = ?", (accession_num,))
-        conn.execute("INSERT INTO vec_books (accession_num, embedding) VALUES (?, ?)", (accession_num, blob))
+        conn.execute(
+            "INSERT INTO vec_books (accession_num, embedding) VALUES (?, ?)",
+            (accession_num, blob),
+        )
     except sqlite3.Error:
         try:
-            conn.execute("INSERT INTO vec_books (accession_num, embedding) VALUES (?, ?)", (accession_num, blob))
+            conn.execute(
+                "INSERT INTO vec_books (accession_num, embedding) VALUES (?, ?)",
+                (accession_num, blob),
+            )
         except sqlite3.Error:
             pass
 
     if should_close:
         conn.commit()
         conn.close()
+
 
 def map_library_name(library: str) -> str:
     """Map friendly UI library names to database llib_no."""
@@ -82,6 +92,7 @@ def map_library_name(library: str) -> str:
         return "2"
     return library
 
+
 def search_books(query_vector: list[float], library: str = "all", top_k: int = 5):
     blob = vector_to_blob(query_vector)
     conn = get_conn()
@@ -89,7 +100,8 @@ def search_books(query_vector: list[float], library: str = "all", top_k: int = 5
     lib_filter = map_library_name(library)
 
     if library == "all":
-        rows = conn.execute("""
+        rows = conn.execute(
+            """
             SELECT
                 b.acc_no, b.title, b.author, 
                 b.llib_no AS Library,
@@ -107,9 +119,12 @@ def search_books(query_vector: list[float], library: str = "all", top_k: int = 5
             WHERE v.embedding MATCH ?
               AND k = ?
             ORDER BY v.distance
-        """, (blob, top_k)).fetchall()
+        """,
+            (blob, top_k),
+        ).fetchall()
     else:
-        rows = conn.execute("""
+        rows = conn.execute(
+            """
             SELECT
                 b.acc_no, b.title, b.author, 
                 b.llib_no AS Library,
@@ -128,33 +143,40 @@ def search_books(query_vector: list[float], library: str = "all", top_k: int = 5
               AND k = ?
               AND CAST(b.llib_no AS TEXT) = ?
             ORDER BY v.distance
-        """, (blob, top_k, lib_filter)).fetchall()
+        """,
+            (blob, top_k, lib_filter),
+        ).fetchall()
 
     conn.close()
 
     results = []
     for r in rows:
         similarity = round(1 - (float(r["distance"]) / 2.0), 4)
-        available  = "available" in (r["status"] or "").lower()
-        results.append({
-            "accession_num": str(r["acc_no"]),
-            "title":         r["title"]     or "Unknown",
-            "author":        r["author"]    or "Unknown",
-            "library":       "Central Library" if str(r["Library"]) == "1" else "MBA Library",
-            "shelf":         r["shelf"]     or "Ask librarian",
-            "status":        r["status"]    or "",
-            "edition":       r["edition"]   or "",
-            "publisher":     str(r["publisher"] or ""),
-            "year":          str(r["year"]      or ""),
-            "price":         str(r["price"]     or ""),
-            "isbn":          r["isbn"]      or "",
-            "dept":          str(r["dept"]      or ""),
-            "subject":       r["subject"]   or "",
-            "description":   r["description"] or "",
-            "available":     available,
-            "similarity":    similarity,
-        })
+        available = "available" in (r["status"] or "").lower()
+        results.append(
+            {
+                "accession_num": str(r["acc_no"]),
+                "title": r["title"] or "Unknown",
+                "author": r["author"] or "Unknown",
+                "library": "Central Library"
+                if str(r["Library"]) == "1"
+                else "MBA Library",
+                "shelf": r["shelf"] or "Ask librarian",
+                "status": r["status"] or "",
+                "edition": r["edition"] or "",
+                "publisher": str(r["publisher"] or ""),
+                "year": str(r["year"] or ""),
+                "price": str(r["price"] or ""),
+                "isbn": r["isbn"] or "",
+                "dept": str(r["dept"] or ""),
+                "subject": r["subject"] or "",
+                "description": r["description"] or "",
+                "available": available,
+                "similarity": similarity,
+            }
+        )
     return results
+
 
 def list_library_books(library: str, query: str = None, limit: int = 1000):
     conn = get_conn()
@@ -175,7 +197,7 @@ def list_library_books(library: str, query: str = None, limit: int = 1000):
         WHERE 1=1
     """
     params = []
-    
+
     if library != "all":
         sql += " AND CAST(llib_no AS TEXT) = ?"
         params.append(lib_filter)
@@ -193,40 +215,68 @@ def list_library_books(library: str, query: str = None, limit: int = 1000):
     rows = conn.execute(sql, params).fetchall()
     conn.close()
 
-    return [{
-        "accession_num": str(r["acc_no"]),
-        "title":         r["title"]     or "Unknown",
-        "author":        r["author"]    or "Unknown",
-        "library":       "Central Library" if str(r["Library"]) == "1" else "MBA Library",
-        "shelf":         r["shelf"]     or "Ask librarian",
-        "status":        r["status"]    or "",
-        "edition":       r["edition"]   or "",
-        "publisher":     str(r["publisher"] or ""),
-        "year":          str(r["year"]      or ""),
-        "price":         str(r["price"]     or ""),
-        "isbn":          r["isbn"]      or "",
-        "dept":          str(r["dept"]      or ""),
-        "subject":       r["subject"]   or "",
-        "description":   r["description"] or "",
-        "available":     "available" in (r["status"] or "").lower(),
-        "similarity":    1.0,
-    } for r in rows]
+    return [
+        {
+            "accession_num": str(r["acc_no"]),
+            "title": r["title"] or "Unknown",
+            "author": r["author"] or "Unknown",
+            "library": "Central Library" if str(r["Library"]) == "1" else "MBA Library",
+            "shelf": r["shelf"] or "Ask librarian",
+            "status": r["status"] or "",
+            "edition": r["edition"] or "",
+            "publisher": str(r["publisher"] or ""),
+            "year": str(r["year"] or ""),
+            "price": str(r["price"] or ""),
+            "isbn": r["isbn"] or "",
+            "dept": str(r["dept"] or ""),
+            "subject": r["subject"] or "",
+            "description": r["description"] or "",
+            "available": "available" in (r["status"] or "").lower(),
+            "similarity": 1.0,
+        }
+        for r in rows
+    ]
+
 
 def list_competitive_books(query: str = None, limit: int = 1000):
     conn = get_conn()
-    
+
     exam_terms = [
-        "GATE", "APTITUDE", "COMPETITIVE", "EXAM", "ENTRANCE", "TANCET",
-        "PUZZLE", "UPSC", "CIVIL SERVICE", "CAT", "IELTS", "VERBAL",
-        "SOLVED PAPER", "PRACTICE SET", "ARITHMETIC", "REASONING",
-        "QUANTITATIVE", "MATHEMATICS", "SSC", "BANKING", "RRB", "PLACEMENT",
-        "TESTS", "MOCK", "STUDY MATERIAL", "GMAT", "GRE", "NDA", "CDS"
+        "GATE",
+        "APTITUDE",
+        "COMPETITIVE",
+        "EXAM",
+        "ENTRANCE",
+        "TANCET",
+        "PUZZLE",
+        "UPSC",
+        "CIVIL SERVICE",
+        "CAT",
+        "IELTS",
+        "VERBAL",
+        "SOLVED PAPER",
+        "PRACTICE SET",
+        "ARITHMETIC",
+        "REASONING",
+        "QUANTITATIVE",
+        "MATHEMATICS",
+        "SSC",
+        "BANKING",
+        "RRB",
+        "PLACEMENT",
+        "TESTS",
+        "MOCK",
+        "STUDY MATERIAL",
+        "GMAT",
+        "GRE",
+        "NDA",
+        "CDS",
     ]
-    
+
     term_clauses = []
     for _ in exam_terms:
         term_clauses.append("(title LIKE ? OR subject LIKE ? OR search_blob LIKE ?)")
-    
+
     base_sql = f"""
         SELECT 
             acc_no, title, author, 
@@ -239,49 +289,53 @@ def list_competitive_books(query: str = None, limit: int = 1000):
             dept_no AS dept, subject,
             search_blob AS description
         FROM unique_books
-        WHERE ({' OR '.join(term_clauses)})
+        WHERE ({" OR ".join(term_clauses)})
     """
-    
+
     params = []
     for t in exam_terms:
         pattern = f"%{t}%"
         params.extend([pattern, pattern, pattern])
-        
+
     if query and query.strip():
         keywords = query.strip().split()
         for i, word in enumerate(keywords):
             pattern = f"%{word}%"
             base_sql += " AND (title LIKE ? OR author LIKE ? OR subject LIKE ? OR search_blob LIKE ?)"
             params.extend([pattern, pattern, pattern, pattern])
-        
+
     base_sql += " ORDER BY title ASC LIMIT ?"
     params.append(limit)
-    
+
     rows = conn.execute(base_sql, params).fetchall()
     conn.close()
-    
-    return [{
-        "accession_num": str(r["acc_no"]),
-        "title":         r["title"]     or "Unknown",
-        "author":        r["author"]    or "Unknown",
-        "library":       "Central Library" if str(r["Library"]) == "1" else "MBA Library",
-        "shelf":         r["shelf"]     or "Ask librarian",
-        "status":        r["status"]    or "",
-        "edition":       r["edition"]   or "",
-        "publisher":     str(r["publisher"] or ""),
-        "year":          str(r["year"]      or ""),
-        "price":         str(r["price"]     or ""),
-        "isbn":          r["isbn"]      or "",
-        "dept":          str(r["dept"]      or ""),
-        "subject":       r["subject"]   or "",
-        "description":   r["description"] or "",
-        "available":     "available" in (r["status"] or "").lower(),
-        "similarity":    1.0,
-    } for r in rows]
+
+    return [
+        {
+            "accession_num": str(r["acc_no"]),
+            "title": r["title"] or "Unknown",
+            "author": r["author"] or "Unknown",
+            "library": "Central Library" if str(r["Library"]) == "1" else "MBA Library",
+            "shelf": r["shelf"] or "Ask librarian",
+            "status": r["status"] or "",
+            "edition": r["edition"] or "",
+            "publisher": str(r["publisher"] or ""),
+            "year": str(r["year"] or ""),
+            "price": str(r["price"] or ""),
+            "isbn": r["isbn"] or "",
+            "dept": str(r["dept"] or ""),
+            "subject": r["subject"] or "",
+            "description": r["description"] or "",
+            "available": "available" in (r["status"] or "").lower(),
+            "similarity": 1.0,
+        }
+        for r in rows
+    ]
+
 
 def advanced_search(acc_no=None, title=None, author=None, isbn=None, limit=100):
     conn = get_conn()
-    
+
     sql = """
         SELECT 
             acc_no, title, author, 
@@ -297,7 +351,7 @@ def advanced_search(acc_no=None, title=None, author=None, isbn=None, limit=100):
         WHERE 1=1
     """
     params = []
-    
+
     if acc_no is not None and str(acc_no).strip():
         sql += " AND CAST(acc_no AS TEXT) LIKE ?"
         params.append(f"%{acc_no}%")
@@ -310,28 +364,127 @@ def advanced_search(acc_no=None, title=None, author=None, isbn=None, limit=100):
     if isbn is not None and isbn.strip():
         sql += " AND isbn LIKE ?"
         params.append(f"%{isbn}%")
-        
+
     sql += " LIMIT ?"
     params.append(limit)
-    
+
     rows = conn.execute(sql, params).fetchall()
     conn.close()
+
+    return [
+        {
+            "accession_num": str(r["acc_no"]),
+            "title": r["title"] or "Unknown",
+            "author": r["author"] or "Unknown",
+            "library": "Central Library" if str(r["Library"]) == "1" else "MBA Library",
+            "shelf": r["shelf"] or "Ask librarian",
+            "status": r["status"] or "",
+            "edition": r["edition"] or "",
+            "publisher": str(r["publisher"] or ""),
+            "year": str(r["year"] or ""),
+            "price": str(r["price"] or ""),
+            "isbn": r["isbn"] or "",
+            "dept": str(r["dept"] or ""),
+            "subject": r["subject"] or "",
+            "description": r["description"] or "",
+            "available": "available" in (r["status"] or "").lower(),
+            "similarity": 1.0,
+        }
+        for r in rows
+    ]
+
+
+def get_books_batch(acc_nos: list[str]):
+    # Query uniqueBooks_ai enhances.db directly
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.path.join(base_dir, "uniqueBooks_ai enhances.db")
     
-    return [{
-        "accession_num": str(r["acc_no"]),
-        "title":         r["title"]     or "Unknown",
-        "author":        r["author"]    or "Unknown",
-        "library":       "Central Library" if str(r["Library"]) == "1" else "MBA Library",
-        "shelf":         r["shelf"]     or "Ask librarian",
-        "status":        r["status"]    or "",
-        "edition":       r["edition"]   or "",
-        "publisher":     str(r["publisher"] or ""),
-        "year":          str(r["year"]      or ""),
-        "price":         str(r["price"]     or ""),
-        "isbn":          r["isbn"]      or "",
-        "dept":          str(r["dept"]      or ""),
-        "subject":       r["subject"]   or "",
-        "description":   r["description"] or "",
-        "available":     "available" in (r["status"] or "").lower(),
-        "similarity":    1.0,
-    } for r in rows]
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    
+    int_acc_nos = []
+    for a in acc_nos:
+        try:
+            int_acc_nos.append(int(a))
+        except ValueError:
+            pass
+            
+    if not int_acc_nos:
+        conn.close()
+        return []
+        
+    placeholders = ",".join(["?"] * len(int_acc_nos))
+    query = f"""
+        SELECT 
+            acc_no, title, author, description, cover_url,
+            location, availability_status, edition, pub_no, pub_year,
+            price, isbn, dept_no, subject, llib_no
+        FROM unique_books
+        WHERE acc_no IN ({placeholders})
+    """
+    
+    rows = conn.execute(query, int_acc_nos).fetchall()
+    conn.close()
+    
+    results = []
+    for r in rows:
+        available = "available" in (r["availability_status"] or "").lower()
+        results.append({
+            "accession_num": str(r["acc_no"]),
+            "title": r["title"] or "Unknown",
+            "author": r["author"] or "Unknown",
+            "library": "Central Library" if str(r["llib_no"]) == "1" else "MBA Library",
+            "shelf": r["location"] or "Ask librarian",
+            "status": r["availability_status"] or "",
+            "edition": r["edition"] or "",
+            "publisher": str(r["pub_no"] or ""),
+            "year": str(r["pub_year"] or ""),
+            "price": str(r["price"] or ""),
+            "isbn": r["isbn"] or "",
+            "dept": str(r["dept_no"] or ""),
+            "subject": r["subject"] or "",
+            "description": r["description"] or "",
+            "cover_url": r["cover_url"] or "",
+            "available": available,
+            "similarity": 1.0,
+        })
+        
+    results_map = {res["accession_num"]: res for res in results}
+    ordered_results = [results_map[str(a)] for a in acc_nos if str(a) in results_map]
+    return ordered_results
+
+
+def setup_settings_table():
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.path.join(base_dir, "uniqueBooks_ai enhances.db")
+    conn = sqlite3.connect(db_path)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS system_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
+    """)
+    conn.commit()
+    conn.close()
+
+def get_setting(key: str, default: str = "") -> str:
+    setup_settings_table()
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.path.join(base_dir, "uniqueBooks_ai enhances.db")
+    conn = sqlite3.connect(db_path)
+    row = conn.execute("SELECT value FROM system_settings WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    if row:
+        return row[0]
+    return default
+
+def set_setting(key: str, value: str):
+    setup_settings_table()
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    db_path = os.path.join(base_dir, "uniqueBooks_ai enhances.db")
+    conn = sqlite3.connect(db_path)
+    conn.execute("INSERT OR REPLACE INTO system_settings (key, value) VALUES (?, ?)", (key, value))
+    conn.commit()
+    conn.close()
+
+

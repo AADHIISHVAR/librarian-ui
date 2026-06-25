@@ -3,7 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from embedder import get_embedding
 from generator import generate_response, generate_hyde_query
-from db import search_books, setup_vec_table, get_conn, list_library_books, list_competitive_books
+from db import (
+    search_books,
+    setup_vec_table,
+    get_conn,
+    list_library_books,
+    list_competitive_books,
+    get_books_batch,
+)
 
 app = FastAPI(title="Librarian AI Sidecar")
 
@@ -45,6 +52,7 @@ class SearchRequest(BaseModel):
     library: str = "all"  # "all" | "Central" | "MBA"
     top_k: int = 5
 
+
 class ListBooksRequest(BaseModel):
     library: str
     query: str = None
@@ -56,21 +64,30 @@ def looks_like_title_search(prompt: str) -> bool:
     intent words, treat it as a direct title search.
     """
     intent_words = [
-        "want", "learn", "understand", "looking", "need", 
-        "find", "about", "explain", "topic", "books", "suggest"
+        "want",
+        "learn",
+        "understand",
+        "looking",
+        "need",
+        "find",
+        "about",
+        "explain",
+        "topic",
+        "books",
+        "suggest",
     ]
     prompt_lower = prompt.lower()
-    
+
     # Increase word count limit — many titles are 6-10 words
     is_short = len(prompt.split()) <= 10
-    
+
     # Use word boundary check for intent words to avoid partial matches
     has_intent = any(f" {w} " in f" {prompt_lower} " for w in intent_words)
-    
+
     return is_short and not has_intent
 
 
-@app.post("/search")
+@app.post("/api/search")
 def search(req: SearchRequest):
     try:
         print(f"[search] Query: {req.prompt}")
@@ -84,14 +101,14 @@ def search(req: SearchRequest):
             # 1. HyDE expansion for intent/topic queries
             hyde_text = generate_hyde_query(req.prompt)
             print(f"[search] HyDE context: {hyde_text}")
-            
+
             # Combine for better matching
             query_text = f"{req.prompt} {hyde_text}"
             vector = get_embedding(query_text, task="search_query")
 
         # 2. Vector search
         books = search_books(vector, req.library, req.top_k)
-        
+
         # 3. Debug Print Scores
         print("[debug] Vector match scores:")
         for b in books:
@@ -100,8 +117,13 @@ def search(req: SearchRequest):
         # 4. Fallback: If all scores are weak (< 0.6 for Cosine similarity), use SQL LIKE fallback
         current_max = max([b["similarity"] for b in books]) if books else 0.0
         if current_max < 0.6:
-            print(f"[search] Weak vector scores ({current_max}). Falling back to title search...")
-            from db import list_library_books # Reuse the list function for standard search
+            print(
+                f"[search] Weak vector scores ({current_max}). Falling back to title search..."
+            )
+            from db import (
+                list_library_books,
+            )  # Reuse the list function for standard search
+
             fallback_books = list_library_books("all", req.prompt, limit=req.top_k)
             if fallback_books:
                 # If we find title matches, replace the vector results
@@ -118,7 +140,7 @@ def search(req: SearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/list")
+@app.post("/api/list")
 def list_books(req: ListBooksRequest):
     try:
         if req.library.lower() == "competitive":
@@ -133,22 +155,68 @@ def list_books(req: ListBooksRequest):
 
 from typing import Optional
 
+
 class AdvancedSearchRequest(BaseModel):
     acc_no: Optional[str] = None
     title: Optional[str] = None
     author: Optional[str] = None
     isbn: Optional[str] = None
 
-@app.post("/advanced-search")
+
+@app.post("/api/advanced-search")
 def advanced_search_endpoint(req: AdvancedSearchRequest):
     try:
         from db import advanced_search
+
         books = advanced_search(req.acc_no, req.title, req.author, req.isbn)
         return books
     except Exception as e:
         print(f"[advanced-search] Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class BatchRequest(BaseModel):
+    acc_nos: list[str]
+
+
+
+@app.post("/api/books/batch")
+def resolve_books_batch(req: BatchRequest):
+    try:
+        return get_books_batch(req.acc_nos)
+    except Exception as e:
+        print(f"[batch] Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SettingPayload(BaseModel):
+    key: str
+    value: str
+
+@app.get("/api/settings/{key}")
+def get_setting_endpoint(key: str):
+    try:
+        from db import get_setting
+        default = "AADHIISHVAR" if key == "developer_username" else ""
+        val = get_setting(key, default)
+        return {"key": key, "value": val}
+    except Exception as e:
+        print(f"[settings] Error get: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/settings")
+def set_setting_endpoint(req: SettingPayload):
+    try:
+        from db import set_setting
+        set_setting(req.key, req.value)
+        return {"status": "ok"}
+    except Exception as e:
+        print(f"[settings] Error set: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+

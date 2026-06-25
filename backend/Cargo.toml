@@ -18,6 +18,7 @@ rusqlite = { version = "0.31", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 flate2 = "1.0"
+jsonwebtoken = "9"
 
 
 [profile.release]

@@ -27,6 +27,74 @@ use rand::Rng;
 const LIBRARIAN_KEY: &str = "hellowork.1234"; 
 const APP_VERSION: &str = "1.5.3-fix-move";
 
+use jsonwebtoken::{encode, decode, Header, Algorithm, EncodingKey, DecodingKey, Validation};
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct Claims {
+    pub sub: String, // Username or user ID
+    pub exp: usize,  // Expiration timestamp
+}
+
+pub fn generate_token(username: &str) -> Result<String, String> {
+    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "your_jwt_secret_key_change_me".to_string());
+    let expiration = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| e.to_string())?
+        .as_secs() + 7200; // 2 hours expiration
+
+    let claims = Claims {
+        sub: username.to_string(),
+        exp: expiration as usize,
+    };
+
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .map_err(|e| e.to_string())
+}
+
+pub fn verify_token(token: &str) -> Result<Claims, String> {
+    let secret = std::env::var("JWT_SECRET").unwrap_or_else(|_| "your_jwt_secret_key_change_me".to_string());
+    decode::<Claims>(
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::new(Algorithm::HS256),
+    )
+    .map(|data| data.claims)
+    .map_err(|e| e.to_string())
+}
+
+#[derive(serde::Deserialize)]
+struct LoginPayload {
+    username: String,
+    password: String,
+}
+
+#[derive(serde::Serialize)]
+struct LoginResponse {
+    token: String,
+}
+
+async fn admin_login(Json(payload): Json<LoginPayload>) -> Result<Json<LoginResponse>, StatusCode> {
+    let admin_user = std::env::var("ADMIN_USERNAME").unwrap_or_else(|_| "hisernbug".to_string());
+    let admin_pass = std::env::var("ADMIN_PASSWORD").unwrap_or_else(|_| "pounds".to_string());
+
+    if payload.username == admin_user && payload.password == admin_pass {
+        match generate_token(&payload.username) {
+            Ok(token) => Ok(Json(LoginResponse { token })),
+            Err(e) => {
+                tracing::error!("Token generation failed: {}", e);
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+        }
+    } else {
+        tracing::warn!("Failed login attempt for username: {}", payload.username);
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
 #[derive(serde::Deserialize)]
 struct SendMessageRequest {
     pub instance: String,
@@ -51,6 +119,10 @@ struct AppState {
     client: reqwest::Client,
 }
 
+fn get_evolution_url() -> String {
+    std::env::var("EVOLUTION_URL").unwrap_or_else(|_| "http://localhost:8080".to_string())
+}
+
 async fn proxy_handler(
     State(state): State<Arc<AppState>>,
     method: Method,
@@ -61,7 +133,7 @@ async fn proxy_handler(
         .path_and_query()
         .map(|pq| pq.as_str().to_owned())
         .unwrap_or_default();
-    let target_url = format!("http://20.6.122.244:8080{}", path_query);
+    let target_url = format!("{}{}", get_evolution_url(), path_query);
     
     tracing::debug!("[proxy] {} -> {}", method, target_url);
     
@@ -167,7 +239,7 @@ async fn send_message(
     Json(payload): Json<SendMessageRequest>,
 ) -> impl IntoResponse {
     let instance_name = payload.instance;
-    let evolution_url = "http://20.6.122.244:8080";
+    let evolution_url = get_evolution_url();
 
     let message_url = format!("{}/message/sendText/{}", evolution_url, instance_name);
     
@@ -244,14 +316,17 @@ async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Resul
        path == "/api/health" ||
        path == "/api/version" ||
        path == "/api/search" ||
+       path == "/api/books/batch" ||
        path == "/api/list" ||
        path == "/api/advanced-search" ||
+       path.starts_with("/api/settings/") ||
        path.contains("/instance") || 
        path.contains("/message") || 
        path.contains("/chat") || 
        path.contains("/group") || 
        path.contains("/webhook") || 
-       path.contains("/whatsapp") {
+       path.contains("/whatsapp") ||
+       path == "/api/admin/login" {
         return Ok(next.run(req).await);
     }
 
@@ -275,9 +350,23 @@ async fn api_key_middleware(req: Request<axum::body::Body>, next: Next) -> Resul
         });
 
     match auth_header {
-        Some(key) if key == LIBRARIAN_KEY => Ok(next.run(req).await),
-        _ => {
-            tracing::warn!("Unauthorized: Missing or invalid API key");
+        Some(token) => {
+            // First check if token is the fallback master key
+            if token == LIBRARIAN_KEY {
+                Ok(next.run(req).await)
+            } else {
+                // Otherwise, verify as dynamic JWT token
+                match verify_token(token) {
+                    Ok(_claims) => Ok(next.run(req).await),
+                    Err(e) => {
+                        tracing::warn!("Unauthorized: Invalid JWT token: {}", e);
+                        Err(StatusCode::UNAUTHORIZED)
+                    }
+                }
+            }
+        }
+        None => {
+            tracing::warn!("Unauthorized: Missing Authorization header");
             Err(StatusCode::UNAUTHORIZED)
         }
     }
@@ -308,14 +397,29 @@ async fn main() {
 
     println!("[backend] v{} Starting...", APP_VERSION);
  
-    let static_files = ServeDir::new("/app/dist")
-        .fallback(ServeFile::new("/app/dist/index.html"));
+    let static_dir = if std::path::Path::new("/app/dist").exists() {
+        "/app/dist".to_string()
+    } else {
+        "../dist".to_string()
+    };
+    let static_files = ServeDir::new(&static_dir)
+        .fallback(ServeFile::new(format!("{}/index.html", static_dir)));
  
     let app = Router::new()
         .route("/api/search", post(routes::search::search))
+        .route("/api/books/batch", post(routes::search::get_books_batch))
         .route("/api/list", post(routes::search::list_books))
         .route("/api/advanced-search", post(routes::search::advanced_search))
+        .route("/api/settings/:key", get(routes::search::get_setting_handler))
+        .route("/api/settings", post(routes::search::set_setting_handler))
         .route("/api/overdue", get(routes::overdue::get_overdue_books))
+        .route("/api/admin/students-due", get(routes::students_due::get_students_due_overview))
+        .route("/api/admin/filter-options", get(routes::students_due::get_filter_options))
+        .route("/api/admin/mark-returned/:id_no/:acc_no", post(routes::students_due::mark_book_returned))
+        .route("/api/admin/search-member", get(routes::students_due::search_member))
+        .route("/api/admin/reports/duelist", get(routes::students_due::get_duelist_report))
+        .route("/api/admin/members/add", post(routes::students_due::add_member))
+        .route("/api/admin/books/add", post(routes::students_due::add_book))
         .route("/api/whatsapp/send", post(send_message))
         .route("/api/whatsapp/qr", get(|| async {
             match std::fs::read_to_string("/tmp/whatsapp_qr.json") {
@@ -334,10 +438,10 @@ async fn main() {
             // Removed local DB check as API is now on Azure
             (StatusCode::OK, "Database check is now handled by Azure VM".to_string()).into_response()
         }))
+        .route("/api/admin/login", post(admin_login))
 
         .route("/api/health", get(|| async { "ok" }))
         .route("/api/version", get(|| async { APP_VERSION }))
-        .route("/", get(|| async { format!("Librarian AI Nuclear Gateway v{}", APP_VERSION) }))
         
         .route("/instance/*path", any(proxy_handler))
         .route("/message/*path", any(proxy_handler))

@@ -77,3 +77,45 @@ pub async fn advanced_search(Json(req): Json<AdvancedSearchRequest>) -> Json<Sea
         }),
     }
 }
+
+#[derive(Deserialize)]
+pub struct BatchRequest {
+    pub acc_nos: Vec<String>,
+}
+
+pub async fn get_books_batch(
+    Json(req): Json<BatchRequest>
+) -> Result<Json<Vec<Book>>, (axum::http::StatusCode, String)> {
+    match sidecar::get_books_batch(req.acc_nos).await {
+        Ok(books) => Ok(Json(books)),
+        Err(e) => Err((axum::http::StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
+}
+
+use axum::extract::Path;
+
+#[derive(Deserialize)]
+pub struct SetSettingRequest {
+    pub key: String,
+    pub value: String,
+}
+
+pub async fn get_setting_handler(
+    Path(key): Path<String>,
+) -> Result<Json<sidecar::SettingResponse>, (axum::http::StatusCode, String)> {
+    match sidecar::get_setting(&key).await {
+        Ok(res) => Ok(Json(res)),
+        Err(e) => Err((axum::http::StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
+}
+
+pub async fn set_setting_handler(
+    Json(req): Json<SetSettingRequest>,
+) -> Result<Json<serde_json::Value>, (axum::http::StatusCode, String)> {
+    match sidecar::set_setting(&req.key, &req.value).await {
+        Ok(_) => Ok(Json(serde_json::json!({ "status": "ok" }))),
+        Err(e) => Err((axum::http::StatusCode::INTERNAL_SERVER_ERROR, e)),
+    }
+}
+
+

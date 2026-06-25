@@ -15,14 +15,18 @@ def embed_all_books():
     setup_vec_table()
     conn = get_conn()
     
-    # Get all books with more metadata columns
-    rows = conn.execute("""
+    # Get all books with more metadata columns (optional limit for fast testing)
+    limit = os.getenv("LIMIT_BOOKS")
+    query = """
         SELECT 
             Accession_Num, Title, Author, Library, 
             Edition, Publisher, Keywords, Subject,
             Year_of_Publishing, Language, Department
         FROM Books
-    """).fetchall()
+    """
+    if limit:
+        query += f" LIMIT {int(limit)}"
+    rows = conn.execute(query).fetchall()
     
     if not rows:
         print("No books found in database. ❌")
